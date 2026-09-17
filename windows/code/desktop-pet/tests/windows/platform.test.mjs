@@ -16,6 +16,31 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   return root;
 }
+
+function aclProbe(file, operation = '') {
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $env:PSModulePath = $PSHOME + '\\Modules'
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    $p = $env:AAAAGENT_ACL_PROBE
+    ${operation}
+    $acl = Get-Acl -LiteralPath $p
+    $owner = $acl.GetOwner([Security.Principal.SecurityIdentifier])
+    [ordered]@{
+      ownerIsUser = ($owner.Value -eq $identity.User.Value)
+      ownerIsTokenOwner = ($owner.Value -eq $identity.Owner.Value)
+      ownerIsAdministrators = ($owner.Value -eq 'S-1-5-32-544')
+      elevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+      powershellMajor = $PSVersionTable.PSVersion.Major
+      inheritanceDisabled = $acl.AreAccessRulesProtected
+    } | ConvertTo-Json -Compress
+  `;
+  try { return JSON.parse(execFileSync(win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe'),
+    ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+    { encoding: 'utf8', windowsHide: true, timeout: 10000, stdio: 'pipe', env: { ...process.env, AAAAGENT_ACL_PROBE: file } })); }
+  catch { throw Error('Synthetic ACL metadata probe failed'); }
+}
 test('Windows containment handles backslashes, sibling prefixes and different drives', () => {
   if (process.platform !== 'win32') return;
   assert.equal(isOutside('C:\\pet', 'C:\\pet\\inside.txt'), false);
@@ -26,33 +51,33 @@ test('owned credentials work with Windows ACLs; a broad read grant is rejected w
   await writeFile(file, 'synthetic-key');
   if (process.platform === 'win32') {
     // Only synthetic fixture metadata, never account names, SIDs, paths or contents.
-    const script = `
-      $ErrorActionPreference = 'Stop'
-      $env:PSModulePath = $PSHOME + '\\Modules'
-      $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-      $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-      $owner = (Get-Acl -LiteralPath $env:AAAAGENT_ACL_PROBE).GetOwner([Security.Principal.SecurityIdentifier])
-      [ordered]@{
-        ownerIsUser = ($owner.Value -eq $identity.User.Value)
-        ownerIsTokenOwner = ($owner.Value -eq $identity.Owner.Value)
-        ownerIsAdministrators = ($owner.Value -eq 'S-1-5-32-544')
-        elevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-        powershellMajor = $PSVersionTable.PSVersion.Major
-      } | ConvertTo-Json -Compress
-    `;
-    let metadata;
-    try { metadata = JSON.parse(execFileSync(win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe'),
-      ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
-      { encoding: 'utf8', windowsHide: true, timeout: 10000, stdio: 'pipe', env: { ...process.env, AAAAGENT_ACL_PROBE: file } })); }
-    catch { throw Error('Synthetic ACL metadata probe failed'); }
+    const metadata = aclProbe(file);
     t.diagnostic('synthetic ACL fixture: ' + JSON.stringify(metadata));
+    if (!metadata.ownerIsUser) assert.equal(isPrivateFileSync(file), false, 'a read-only check must not accept or normalize a different owner');
   }
   restrictPrivatePathSync(file);
   assert.equal(isPrivateFileSync(file), true);
   if (process.platform === 'win32') {
-    execFileSync('icacls.exe', [file, '/grant', '*S-1-1-0:R'], { windowsHide: true, stdio: 'pipe' });
+    const restricted = aclProbe(file);
+    assert.equal(restricted.ownerIsUser, true, 'restriction must finish with the individual user as owner');
+    assert.equal(restricted.inheritanceDisabled, true);
+    // Retain the Everyone regression and also reject Authenticated Users.
+    for (const sid of ['S-1-1-0', 'S-1-5-11']) {
+      execFileSync('icacls.exe', [file, '/grant', '*' + sid + ':R'], { windowsHide: true, stdio: 'pipe' });
+      assert.equal(isPrivateFileSync(file), false);
+      assert.equal(isPrivateFileSync(file), false, 'inspection must not repair a broad grant');
+      restrictPrivatePathSync(file); assert.equal(isPrivateFileSync(file), true);
+    }
+    // A broad inherited ACE must be rejected as well as an explicit one.
+    execFileSync('icacls.exe', [dir, '/grant', '*S-1-1-0:(OI)(CI)R'], { windowsHide: true, stdio: 'pipe' });
+    aclProbe(file, `$acl = Get-Acl -LiteralPath $p; $acl.SetAccessRuleProtection($false, $false); [IO.File]::SetAccessControl($p, $acl)`);
     assert.equal(isPrivateFileSync(file), false);
     restrictPrivatePathSync(file); assert.equal(isPrivateFileSync(file), true);
+    // Directory restriction must use the same owner normalization on an elevated runner.
+    const privateDir = join(dir, 'private child'); await mkdir(privateDir);
+    restrictPrivatePathSync(privateDir);
+    assert.equal(aclProbe(privateDir).ownerIsUser, true);
+    assert.equal(aclProbe(privateDir).inheritanceDisabled, true);
   }
   assert.equal(await readFile(file, 'utf8'), 'synthetic-key');
 });

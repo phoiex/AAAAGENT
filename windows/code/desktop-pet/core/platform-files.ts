@@ -14,13 +14,24 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $env:PSModulePath = $PSHOME + '\\Modules'
 $p = $env:AAAAGENT_ACL_PATH
-$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$sid = $identity.User
 $acl = Get-Acl -LiteralPath $p
-if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 2 }
+$owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+if ($owner -ne $sid.Value) {
+  # An elevated Windows token can create files owned by Administrators rather
+  # than by TokenUser. Only the explicit restrict operation may normalize that
+  # exact default owner; read-only checks and other owners remain rejected.
+  $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+  if ($env:AAAAGENT_ACL_ACTION -ne 'restrict' -or
+      $owner -ne 'S-1-5-32-544' -or $owner -ne $identity.Owner.Value -or
+      -not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 2 }
+}
 if ($env:AAAAGENT_ACL_ACTION -eq 'restrict') {
   $item = Get-Item -LiteralPath $p -Force
   $acl = if ($item.PSIsContainer) { [Security.AccessControl.DirectorySecurity]::new() } else { [Security.AccessControl.FileSecurity]::new() }
   $acl.SetAccessRuleProtection($true, $false)
+  if ($owner -ne $sid.Value) { $acl.SetOwner($sid) }
   $inherit = if ($item.PSIsContainer) { [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit' } else { [Security.AccessControl.InheritanceFlags]::None }
   foreach ($id in @($sid.Value, 'S-1-5-18', 'S-1-5-32-544')) {
     $identity = [Security.Principal.SecurityIdentifier]::new($id)
@@ -30,6 +41,7 @@ if ($env:AAAAGENT_ACL_ACTION -eq 'restrict') {
   if ($item.PSIsContainer) { [IO.Directory]::SetAccessControl($p, $acl) } else { [IO.File]::SetAccessControl($p, $acl) }
   $acl = Get-Acl -LiteralPath $p
 }
+if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 2 }
 foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
   if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($sid.Value, 'S-1-5-18', 'S-1-5-32-544')) { exit 3 }
 }
