@@ -66,7 +66,7 @@ Mac Harness 使用本机服务与预设连接，当前适配协议为 0.1.5-rc.1
 
 `npm run test:setup` 使用合成音频、测试凭据和本机 HTTP 检查首次配置与音色流程；`npm run test:release` 检查已有发布功能。完成配置后，可用自己的账号和设备试用。
 
-Windows 的 ACL/runner 身份问题仍待修复，其他已知问题见版本对应的验证记录。
+Windows 0.1.2 已包含文件权限修复，历史问题及验证范围见 [Windows 验证](../windows/WINDOWS-VALIDATION.md)。
 
 发布前在干净副本运行 `python3 tools/check-release.py`。排除 `node_modules`、构建产物、`.local/`、数据库、密钥、参考/样音、模型和 SDK，保留第三方许可。不要复制私有工程 Git 历史。检查器检查目录结构和已知敏感信息模式，素材许可需另行核对。
 
@@ -88,7 +88,7 @@ According to the [Bailian MiniMax documentation](https://help.aliyun.com/zh/mode
 
 ### API key formats
 
-API keys are saved and sent intact, including newer formats containing periods. Only surrounding pasted whitespace is trimmed; content is never truncated or restricted to an old prefix. Nonempty, length and HTTP-header safety checks remain, including rejection of embedded whitespace and control characters. After updating, save a previously rejected key again; saving does not establish provider authentication.
+API keys are saved and sent intact, including newer formats containing periods. Only surrounding pasted whitespace is trimmed; content is never truncated or restricted to an old prefix. Nonempty, length and HTTP-header safety checks remain, including rejection of embedded whitespace and control characters. After updating, save a previously rejected key again; the separate connection test reports model-list authentication, while individual model access still needs to be enabled.
 
 ### Prepare, activate and run
 
@@ -100,6 +100,6 @@ Install, launch and sign into/configure [DeepSeek Harness](https://github.com/de
 
 ### Evidence and publication
 
-`npm run test:setup` uses synthetic keys/audio and local HTTP. After setup, try the service with your own account and devices. The known Windows ACL/runner-identity issue is still awaiting a fix.
+`npm run test:setup` uses synthetic keys/audio and local HTTP. After setup, try the service with your own account and devices. Windows 0.1.2 includes file-permission fixes; see the [dated Windows validation](../windows/WINDOWS-VALIDATION.md) for its scope.
 
 Keep `.local/`, external key files, databases, reference/sample audio, dependencies, builds, private models and SDKs out of Git. Use `python3 tools/check-release.py` on a clean release copy and preserve licensing. No credentials, private history, cloned voice material or external executor installations are bundled.

@@ -88,7 +88,7 @@ According to the [Bailian MiniMax documentation](https://help.aliyun.com/zh/mode
 
 ### API key formats
 
-API keys are saved and sent intact, including newer formats containing periods. Only surrounding pasted whitespace is trimmed; content is never truncated or restricted to an old prefix. Nonempty, length and HTTP-header safety checks remain, including rejection of embedded whitespace and control characters. After updating, save a previously rejected key again; saving does not establish provider authentication.
+API keys are saved and sent intact, including newer formats containing periods. Only surrounding pasted whitespace is trimmed; content is never truncated or restricted to an old prefix. Nonempty, length and HTTP-header safety checks remain, including rejection of embedded whitespace and control characters. After updating, save a previously rejected key again; the separate connection test reports model-list authentication, while individual model access still needs to be enabled.
 
 ### Prepare, activate and run
 
