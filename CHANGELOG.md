@@ -6,6 +6,7 @@
 
 | 修改时间（北京时间） | 一句话说明 | 提交 |
 | --- | --- | --- |
+| 2026-09-21 20:31 | Mac 和 Windows 新增 API Key 连接测试，保存后自动测试一次，并按凭据显示测试结果或供应商报错。 | [c5fa300](https://github.com/phoiex/AAAAGENT/commit/c5fa300afae0e968f412ef58c964fbb93dbfd089) |
 | 2026-09-21 18:46 | 修复 Mac 和 Windows 对新格式 API Key 的误拒，完整保留含点号的密钥并统一保存、读取与请求传递。 | [8c3069b](https://github.com/phoiex/AAAAGENT/commit/8c3069b12161b388017a9fd5f857c223a31e4e1d) |
 | 2026-09-19 19:58 | 修复 Windows 管理员进程的默认文件所有者误判，Windows 专项和发布回归在 GitHub Actions 通过。 | [0ec5193](https://github.com/phoiex/AAAAGENT/commit/0ec5193661a9b6510579d64d22ef1cee8cae1e98) |
 | 2026-09-19 19:52 | Windows 0.1.2 同步独立情绪状态与网页查询，完成旧聊天导入、自助配置和任务转交回归，并更新 Windows 文档。 | [63de75e](https://github.com/phoiex/AAAAGENT/commit/63de75e3a42ae80b2365941d9274ea1847a11443) |
@@ -33,6 +34,7 @@ Each public repository update is listed newest first, with one sentence per chan
 
 | Time (UTC+8) | One-sentence summary | Commit |
 | --- | --- | --- |
+| 2026-09-21 20:31 | Added API key connection tests on Mac and Windows, running once after saving and showing each credential’s result or provider error. | [c5fa300](https://github.com/phoiex/AAAAGENT/commit/c5fa300afae0e968f412ef58c964fbb93dbfd089) |
 | 2026-09-21 18:46 | Fixed rejection of new-format API keys on Mac and Windows, preserving dotted keys through saving, reading and request headers. | [8c3069b](https://github.com/phoiex/AAAAGENT/commit/8c3069b12161b388017a9fd5f857c223a31e4e1d) |
 | 2026-09-19 19:58 | Fixed default file-owner checks for elevated Windows processes; Windows and release suites pass on GitHub Actions. | [0ec5193](https://github.com/phoiex/AAAAGENT/commit/0ec5193661a9b6510579d64d22ef1cee8cae1e98) |
 | 2026-09-19 19:52 | Released Windows 0.1.2 with emotion state and web queries, Windows regressions for chat import, self-service setup and task dispatch, and updated documentation. | [63de75e](https://github.com/phoiex/AAAAGENT/commit/63de75e3a42ae80b2365941d9274ea1847a11443) |

@@ -18,7 +18,7 @@ Windows PowerShell 使用 `npm.cmd`；系统和桌面构建要求见 [Windows �
 
 ## Key、模型和自己的参考音频
 
-API Key 按完整凭据保存与发送，兼容带点号等新格式；只清除首尾粘贴空白，不截断内容。不限制旧前缀，保留非空、长度与请求头安全检查，继续拒绝内部空白或控制字符。已被旧版拒绝的 Key 可更新后重新保存；保存成功不代表服务商验证通过。
+API Key 按完整凭据保存与发送，兼容带点号等新格式；只清除首尾粘贴空白，不截断内容。不限制旧前缀，保留非空、长度与请求头安全检查，继续拒绝内部空白或控制字符。已被旧版拒绝的 Key 可更新后重新保存；保存后自动测试一次连接，每个已保存条目也可点击“测试连接”。测试只读取对应供应商的模型目录，不生成内容；成功显示“连接测试通过”，失败直接显示已隐藏敏感信息的报错。测试失败保留 Key，刷新页面不会重新测试。百炼测试使用当前适配的北京接口；具体模型仍需开通。
 
 - 文本对话及相关文字处理使用 **DeepSeek** Key。ASR、多模态和 **百炼托管 MiniMax** 使用 **阿里云百炼** Key。
 - 先在[百炼控制台](https://bailian.console.aliyun.com/)开通要使用的模型，再按[官方说明获取 Key](https://help.aliyun.com/zh/model-studio/get-api-key)。**调用前请确认模型已开通、账户余额充足，再保存 Key 并试用。** DeepSeek Key 在[官方控制台](https://platform.deepseek.com/api_keys)管理。
@@ -80,7 +80,7 @@ From this version's `code/desktop-pet/`, run `npm ci`, `npm run build`, then `np
 
 Text dialogue uses **DeepSeek**. ASR, multimodal models and **DashScope-hosted MiniMax** use an **Alibaba Bailian Key**. First enable the relevant models in [Bailian](https://bailian.console.aliyun.com/) and obtain a Key using the [official guide](https://help.aliyun.com/zh/model-studio/get-api-key). Before trying the service, confirm model access and sufficient account balance, then save the Key. [DeepSeek keys](https://platform.deepseek.com/api_keys) are configured separately.
 
-Save keys explicitly in the local form. Restricted per-install files remain outside the repository; responses contain references/status, never key values. New saves preserve old entries and voice bindings. Manually select the intended credential for each model and save; selection alone makes no network request. Existing runtime settings take effect after restart.
+Save keys explicitly in the local form. Each save triggers one connection test; each saved credential also has a “测试连接” button. This only reads the provider’s model list and generates no content. Success shows “连接测试通过”; failures show the provider error with sensitive data removed. Failures keep the key, and refreshing does not repeat the test. Bailian testing uses the currently supported Beijing endpoint; individual models still need access. Restricted per-install files remain outside the repository; responses contain references/status, never key values. New saves preserve old entries and voice bindings. Manually select the intended credential for each model and save; selection alone makes no network request. Existing runtime settings take effect after restart.
 
 Use an adapted system voice, or upload reference MP3/M4A/WAV you are authorized to use: 10 seconds to 5 minutes, up to 20 MB. The browser converts it locally to mono PCM WAV and the server validates duration/format. Upload is local until explicit cloud confirmation. MiniMax presets are visible before any clone exists. Preparing a voice is free of network calls; creation and first formal activation require separate cost confirmations. A successful full synthesis is required for registration, and registration never automatically replaces your selected voice. Samples play only on your action.
 

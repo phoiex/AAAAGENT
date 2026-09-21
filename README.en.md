@@ -4,6 +4,7 @@
 
 | Time | Change |
 | --- | --- |
+| 2026-09-21 20:31 | Added API key connection tests on Mac and Windows, running once after saving and showing each credential’s result or provider error. |
 | 2026-09-21 18:46 | Fixed rejection of new-format API keys on Mac and Windows, preserving dotted keys through saving, reading and request headers. |
 | 2026-09-19 19:58 | Fixed default file-owner checks for elevated Windows processes; Windows and release suites pass on GitHub Actions. |
 | 2026-09-19 19:52 | Released Windows 0.1.2 with emotion state and web queries, Windows regressions for chat import, self-service setup and task dispatch, and updated documentation. |
