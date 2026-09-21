@@ -18,6 +18,8 @@ Windows PowerShell 使用 `npm.cmd`；系统和桌面构建要求见 [Windows �
 
 ## Key、模型和自己的参考音频
 
+API Key 按完整凭据保存与发送，兼容带点号等新格式；只清除首尾粘贴空白，不截断内容。不限制旧前缀，保留非空、长度与请求头安全检查，继续拒绝内部空白或控制字符。已被旧版拒绝的 Key 可更新后重新保存；保存成功不代表服务商验证通过。
+
 - 文本对话及相关文字处理使用 **DeepSeek** Key。ASR、多模态和 **百炼托管 MiniMax** 使用 **阿里云百炼** Key。
 - 先在[百炼控制台](https://bailian.console.aliyun.com/)开通要使用的模型，再按[官方说明获取 Key](https://help.aliyun.com/zh/model-studio/get-api-key)。**调用前请确认模型已开通、账户余额充足，再保存 Key 并试用。** DeepSeek Key 在[官方控制台](https://platform.deepseek.com/api_keys)管理。
 - 在本机页显式保存 Key。密钥放在项目外按安装目录区分的受限文件中，网页只得到引用和状态，不回显原值。每次保存生成新条目，旧条目及旧音色绑定保留；在各模型模块手动选择对应凭据，再保存设置。选择下拉框本身不发送请求。
@@ -83,6 +85,10 @@ Save keys explicitly in the local form. Restricted per-install files remain outs
 Use an adapted system voice, or upload reference MP3/M4A/WAV you are authorized to use: 10 seconds to 5 minutes, up to 20 MB. The browser converts it locally to mono PCM WAV and the server validates duration/format. Upload is local until explicit cloud confirmation. MiniMax presets are visible before any clone exists. Preparing a voice is free of network calls; creation and first formal activation require separate cost confirmations. A successful full synthesis is required for registration, and registration never automatically replaces your selected voice. Samples play only on your action.
 
 According to the [Bailian MiniMax documentation](https://help.aliyun.com/zh/model-studio/minimax-synchronous-speech-synthesis-api), Turbo costs CNY 2 per 10,000 billed characters and HD CNY 3.5. Clone demos incur character fees; first formal use of a cloned voice adds a one-time CNY 9.9. Provider rules/bills at invocation time apply. The existing shared ledger retains estimates and unknown costs; default accounting is uncapped, without restoring old experimental call quotas. A proven zero-charge 403/2038 refusal can be explicitly prepared again after resolving access; another cost confirmation is still required. Unknown outcomes are never automatically repeated, and demo download failure does not recreate the clone. See the [clone API requirements](https://help.aliyun.com/zh/model-studio/voice-clone-design-http-api).
+
+### API key formats
+
+API keys are saved and sent intact, including newer formats containing periods. Only surrounding pasted whitespace is trimmed; content is never truncated or restricted to an old prefix. Nonempty, length and HTTP-header safety checks remain, including rejection of embedded whitespace and control characters. After updating, save a previously rejected key again; saving does not establish provider authentication.
 
 ### Prepare, activate and run
 

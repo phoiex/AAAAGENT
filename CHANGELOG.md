@@ -6,6 +6,7 @@
 
 | 修改时间（北京时间） | 一句话说明 | 提交 |
 | --- | --- | --- |
+| 2026-09-21 18:46 | 修复 Mac 和 Windows 对新格式 API Key 的误拒，完整保留含点号的密钥并统一保存、读取与请求传递。 | [8c3069b](https://github.com/phoiex/AAAAGENT/commit/8c3069b12161b388017a9fd5f857c223a31e4e1d) |
 | 2026-09-19 19:15 | Mac版新增文字与近期对话的情绪推测，分别保存用户情绪、桌宠心情和消息快照，并提供网页查询。 | [14e0be5](https://github.com/phoiex/AAAAGENT/commit/14e0be53d88a4d09821e9cba6cef4703ab669093) |
 | 2026-09-19 14:12 | 补充人格提示词参考与 AI-Vtuber 致谢；拟人化优化提示词尚未完成。 | [c49c0b8](https://github.com/phoiex/AAAAGENT/commit/c49c0b88d625c3b821334da073266f2a2f64d564) |
 | 2026-09-18 23:03 | 为 Mac 和 Windows 增加网页自助配置 Key、模型选择与参考音频音色设置。 | [7f24304](https://github.com/phoiex/AAAAGENT/commit/7f243042d228236c2c739b23af9edd825ac126a0) |
@@ -30,6 +31,7 @@ Each public repository update is listed newest first, with one sentence per chan
 
 | Time (UTC+8) | One-sentence summary | Commit |
 | --- | --- | --- |
+| 2026-09-21 18:46 | Fixed rejection of new-format API keys on Mac and Windows, preserving dotted keys through saving, reading and request headers. | [8c3069b](https://github.com/phoiex/AAAAGENT/commit/8c3069b12161b388017a9fd5f857c223a31e4e1d) |
 | 2026-09-19 19:15 | Added text and recent-dialogue emotion inference, separate user and companion states, frozen message snapshots and a web view on macOS. | [14e0be5](https://github.com/phoiex/AAAAGENT/commit/14e0be53d88a4d09821e9cba6cef4703ab669093) |
 | 2026-09-19 14:12 | Added persona-prompt references and AI-Vtuber credits; prompts for more natural conversation are not yet ready. | [c49c0b8](https://github.com/phoiex/AAAAGENT/commit/c49c0b88d625c3b821334da073266f2a2f64d564) |
 | 2026-09-18 23:03 | Added web-based key, model and reference-voice setup for Mac and Windows. | [7f24304](https://github.com/phoiex/AAAAGENT/commit/7f243042d228236c2c739b23af9edd825ac126a0) |
