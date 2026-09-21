@@ -16,9 +16,9 @@ import { pcm16Wav } from '../../media/wav.js';
 
 async function fixture(t:test.TestContext){
  const directory=await realpath(await mkdtemp(resolve(tmpdir(),'first-run-50-'))),root=resolve(directory,'project');await mkdir(root);
- const calls:string[]=[];let refusal=false;
+ const calls:string[]=[],authorizations:(string|null)[]=[];let refusal=false;
  const fetcher=(async(url:any,init:RequestInit={})=>{
-  const address=String(url);calls.push(address);
+  const address=String(url);calls.push(address);authorizations.push(new Headers(init.headers).get('Authorization'));
   if(address.includes('/uploads?'))return Response.json({data:{upload_host:'https://dashscope-file-mgr.oss-cn-beijing.aliyuncs.com/',upload_dir:'dashscope-instant/testing',x_oss_object_acl:'private',x_oss_forbid_overwrite:'true',expire_in_seconds:3600,policy:'synthetic-policy',signature:'synthetic-signature',oss_access_key_id:'synthetic-oss'}});
   if(address.includes('dashscope-file-mgr'))return new Response('');
   if(address.includes('demo.mp3'))return new Response('ID3synthetic');
@@ -33,7 +33,7 @@ async function fixture(t:test.TestContext){
   const response=await fetch(service.origin+'/api/self-setup'+path,{method,headers:{Authorization:'Bearer '+service.token,...(body?{Origin:service.origin,'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
   return{status:response.status,value:await response.json() as any};
  }
- return {root,calls,options,request,get service(){return service;},setRefusal:(value:boolean)=>refusal=value,async restart(){await service.close();service=await startFirstRunSetup(root,options);}};
+ return {root,calls,authorizations,options,request,get service(){return service;},setRefusal:(value:boolean)=>refusal=value,async restart(){await service.close();service=await startFirstRunSetup(root,options);}};
 }
 const key='sk-fixture-only';
 test('real loopback first-run works with zero keys, config, voice or assets; metadata view does not call cloud or create user data',async t=>{
@@ -119,4 +119,17 @@ test('synthetic finish produces pinned prepared config and original activation C
  await writeFile(resolve(code,'tools/configure-local.mjs'),template);
  execFileSync(process.execPath,[resolve(code,'tools/configure-local.mjs'),'--activate-existing'],{timeout:20000,stdio:'pipe'});
  assert.equal(JSON.parse(await readFile(resolve(dir,'activation.json'),'utf8')).status,'active');assert.equal(await readFile(resolve(dir,'config.json'),'utf8'),configBefore);assert.equal(f.calls.length,0);
+});
+
+test('HTTP key save normalizes only outer whitespace, rejects injection, and preserves new format across restart and voice requests',async t=>{
+ const f=await fixture(t);let instanceId=(await f.request()).value.instanceId;const key='sk-ws-demo.part.signature';
+ for(const bad of ['', 'key\r\nHeader:injection', 'key with space', 'key\0bad']) {
+  const reply=await f.request('/credentials',{instanceId,provider:'dashscope',key:bad,expectedRevision:0,operationId:'synthetic-invalid'});assert.equal(reply.status,400);assert.equal((await f.request()).value.credentialRevision,0);
+ }
+ const saved=await f.request('/credentials',{instanceId,provider:'dashscope',key:' \t'+key+'\r\n',expectedRevision:0,operationId:'synthetic-new-key'});assert.equal(saved.status,200);assert.equal(JSON.stringify(saved).includes(key),false);assert.equal(f.calls.length,0);
+ await f.restart();instanceId=(await f.request()).value.instanceId;
+ const reference=(await f.request('/reference',{instanceId,operationId:'synthetic-new-ref',filename:'own.wav',audioBase64:Buffer.from(pcm16Wav(new Float32Array(240000),24000)).toString('base64')})).value;
+ const op=(await f.request('/voice/prepare',{instanceId,referenceId:reference.id,label:'测试',targetModel:'MiniMax/speech-2.8-turbo',credentialRef:saved.value.credentialRef,configRevision:0,text:'你好。'})).value;
+ const cloned=await f.request('/voice/confirm',{instanceId,operationId:op.operationId,expectedRevision:op.revision,costConsent:true});assert.equal(cloned.value.phase,'clone_ready');
+ assert.deepEqual(f.authorizations,['Bearer '+key,null,'Bearer '+key,null]);
 });

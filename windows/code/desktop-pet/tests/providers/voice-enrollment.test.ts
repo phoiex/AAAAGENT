@@ -10,10 +10,10 @@ const input={binding,reference,bytes:referenceBytes,voiceId:'Voice12345678',text
 const policy={upload_host:'https://dashscope-file-mgr.oss-cn-beijing.aliyuncs.com/',upload_dir:'dashscope-instant/test',x_oss_object_acl:'private',x_oss_forbid_overwrite:'true',expire_in_seconds:3600,policy:'test-policy',signature:'test-signature',oss_access_key_id:'test-id'};
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}});
 const cloneResponse=()=>json({output:{base_resp:{status_code:0},input_sensitive:false,input_sensitive_type:0,demo_audio:'https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/demo.mp3?Signature=secret'},usage:{characters:5},request_id:'request-clone'});
-function rig(respond?:(url:string,init:RequestInit,n:number)=>Response|Promise<Response>){
+function rig(respond?:(url:string,init:RequestInit,n:number)=>Response|Promise<Response>, key = 'sk-synthetic-only'){
  const requests:{url:string;init:RequestInit}[]=[],reserves:any[]=[],settles:any[]=[];
  const fetcher=(async(url:any,init:RequestInit={})=>{requests.push({url:String(url),init});return respond?respond(String(url),init,requests.length):String(url).includes('/uploads?')?json({data:policy}):String(url).includes('dashscope-file-mgr')?new Response(''):String(url).includes('/demo.mp3')?new Response('ID3synthetic'):cloneResponse();}) as typeof fetch;
- const provider=new VoiceEnrollment({fetch:fetcher,key:()=> 'sk-synthetic-only',accounting:{async reserve(...args){reserves.push(args);},async settle(...args){settles.push(args);}}});
+ const provider=new VoiceEnrollment({fetch:fetcher,key:()=>key,accounting:{async reserve(...args){reserves.push(args);},async settle(...args){settles.push(args);}}});
  return{provider,requests,reserves,settles};
 }
 test('bounded private upload, clone receipt and unauthenticated demo; no implicit first use',async()=>{
@@ -80,4 +80,17 @@ test('2038 with contradictory usage cannot claim settled-zero retry safety',asyn
  const r=rig(()=>json({output:{base_resp:{status_code:2038}},usage:{characters:5}}));
  await assert.rejects(r.provider.activate(input,new AbortController().signal),(e:EnrollmentError)=>e.code==='provider_not_enabled'&&e.outcomeUnknown&&e.retrySafe===false);
  assert.equal(r.settles[0][1],1000);
+});
+
+test('voice clone and synthesis preserve a dotted opaque key, with no secret sent to upload or demo hosts',async()=>{
+ const key='sk-ws-demo.part.signature',r=rig(undefined,' \t'+key+'\r\n');
+ await r.provider.clone(input,new AbortController().signal);
+ for (const [i,request] of r.requests.entries()) assert.equal(new Headers(request.init.headers).get('Authorization'),i===0||i===2?'Bearer '+key:null);
+ const wav=pcm16Wav(new Float32Array(2400),24000),a=rig(()=>json({output:{base_resp:{status_code:0},data:{status:2,audio:Buffer.from(wav).toString('hex')}},usage:{characters:5}}),key);
+ await a.provider.activate(input,new AbortController().signal);assert.equal(new Headers(a.requests[0]!.init.headers).get('Authorization'),'Bearer '+key);
+});
+test('invalid opaque voice credentials fail before any request or accounting reservation',async()=>{
+ for (const key of ['', ' ', 'a'.repeat(4097), 'key\r\nInjected:yes', 'key with space', 'key\0value']) {
+  const r=rig(undefined,key);await assert.rejects(r.provider.activate(input,new AbortController().signal),(e:EnrollmentError)=>e.code==='credential_unavailable');assert.equal(r.requests.length,0);assert.equal(r.reserves.length,0);
+ }
 });

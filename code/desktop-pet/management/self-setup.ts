@@ -1,3 +1,4 @@
+import { normalizeApiKey, MAX_API_KEY_FILE_BYTES } from '../core/api-key.js';
 import { constants } from 'node:fs';
 import { open, realpath, lstat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
@@ -40,10 +41,10 @@ function safeError(error:unknown):never {
 /** Reads exactly one selected credential only following an explicit paid-action confirmation. */
 export async function readSetupKey(file:string,projectRoot:string):Promise<string>{
  const actual=await realpath(file),root=await realpath(projectRoot),part=relative(root,actual),before=await lstat(file);
- if(!isAbsolute(file)||(!part.startsWith('..'+(process.platform==='win32'?'\\':'/'))&&part!=='..')||before.isSymbolicLink()||!before.isFile()||(before.mode&0o077)!==0||(process.getuid&&before.uid!==process.getuid())||before.size>4096)throw Error('credential_unavailable');
+ if(!isAbsolute(file)||(!part.startsWith('..'+(process.platform==='win32'?'\\':'/'))&&part!=='..')||before.isSymbolicLink()||!before.isFile()||(before.mode&0o077)!==0||(process.getuid&&before.uid!==process.getuid())||before.size>MAX_API_KEY_FILE_BYTES)throw Error('credential_unavailable');
  const h=await open(actual,constants.O_RDONLY|constants.O_NOFOLLOW);
- try{const after=await h.stat();if(after.ino!==before.ino||after.dev!==before.dev||after.size>4096||!after.isFile()||(after.mode&0o077)!==0)throw Error('credential_unavailable');
-  const bytes=await h.readFile();try{const value=bytes.toString('utf8').trim();if(!/^sk-[A-Za-z0-9_-]{8,4090}$/.test(value))throw Error('credential_unavailable');return value;}finally{bytes.fill(0);}
+ try{const after=await h.stat();if(after.ino!==before.ino||after.dev!==before.dev||after.size>MAX_API_KEY_FILE_BYTES||!after.isFile()||(after.mode&0o077)!==0)throw Error('credential_unavailable');
+  const bytes=await h.readFile();try{const value=normalizeApiKey(bytes.toString('utf8'));if(value===undefined)throw Error('credential_unavailable');return value;}finally{bytes.fill(0);}
  }finally{await h.close();}
 }
 /** One backend owns configuration writes. Lazy private stores keep viewing first-run setup read-only. */

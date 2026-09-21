@@ -1,3 +1,4 @@
+import { normalizeApiKey } from '../core/api-key.js';
 import { randomUUID } from 'node:crypto';
 import { inspectPcmWav } from '../media/wav.js';
 import { abortable } from '../media/scope.js';
@@ -60,9 +61,9 @@ export class VoiceEnrollment {
   }
   private async key(binding: EnrollmentBinding): Promise<string> {
     validateEnrollmentBinding(binding);
-    let key: string;
-    try { key = await this.options.key(binding.credentialRef); } catch { throw new EnrollmentError('credential_unavailable'); }
-    if (!/^sk-[A-Za-z0-9_-]+$/.test(key)) throw new EnrollmentError('credential_unavailable'); return key;
+    let key: string | undefined;
+    try { key = normalizeApiKey(await this.options.key(binding.credentialRef)); } catch { throw new EnrollmentError('credential_unavailable'); }
+    if (key === undefined) throw new EnrollmentError('credential_unavailable'); return key;
   }
   private async upload(binding: EnrollmentBinding, reference: VoiceReference, bytes: Uint8Array, key: string, signal: AbortSignal): Promise<string> {
     if (bytes.length !== reference.bytes || bytes.length > MAX_REFERENCE_BYTES || sha256(bytes) !== reference.sha256

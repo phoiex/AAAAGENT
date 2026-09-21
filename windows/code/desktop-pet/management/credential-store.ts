@@ -1,3 +1,4 @@
+import { normalizeApiKey } from '../core/api-key.js';
 import { isPrivateFileSync, restrictPrivatePathSync } from '../core/platform-files.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -78,16 +79,17 @@ export class ManagedCredentialStore {
     assertOwned(this.directory,true);
   }
   save(input:{provider:ManagedCredentialProvider;key:string;expectedRevision:number;operationId:string}):{revision:number;credentialRef:string;provider:ManagedCredentialProvider} {
-    if(!['dashscope','deepseek'].includes(input.provider)||typeof input.key!=='string'||!/^sk-[A-Za-z0-9_-]{8,4090}$/.test(input.key)||!Number.isSafeInteger(input.expectedRevision)||input.expectedRevision<0||!/^[a-zA-Z0-9_-]{8,100}$/.test(input.operationId))fail('invalid_request','请选择对应服务商并填写完整 API Key。');
+    const key = normalizeApiKey(input.key);
+    if(!['dashscope','deepseek'].includes(input.provider)||key===undefined||!Number.isSafeInteger(input.expectedRevision)||input.expectedRevision<0||!/^[a-zA-Z0-9_-]{8,100}$/.test(input.operationId))fail('invalid_request','请选择对应服务商并填写完整 API Key。');
     this.ensureDirectory();const release=acquireSetupLock(join(this.directory,'write.lock'),'credentials:'+this.projectRoot);
     let created:string|undefined,temporary:string|undefined;
     try {
       const old=this.state(),prior=old.entries.find(x=>x.operationId===input.operationId);
-      if(prior){if(prior.provider!==input.provider||readOwned(join(this.directory,prior.name))!==input.key)fail('version_conflict','这次保存编号已用于其他内容。');return {revision:old.revision,credentialRef:prior.id,provider:prior.provider};}
+      if(prior){if(prior.provider!==input.provider||readOwned(join(this.directory,prior.name))!==key)fail('version_conflict','这次保存编号已用于其他内容。');return {revision:old.revision,credentialRef:prior.id,provider:prior.provider};}
       if(old.revision!==input.expectedRevision)fail('version_conflict','凭据列表已变化，请刷新后再保存。');
       if(old.entries.length>=1000)fail('unavailable','本机凭据记录已达容量上限。');
       const name='credential-'+randomUUID()+'.key',file=join(this.directory,name),id=managedCredentialId(file,input.provider);
-      const keyFd=openSync(file,'wx',0o600);created=file;try{restrictPrivatePathSync(file);writeFileSync(keyFd,input.key);}finally{closeSync(keyFd);}assertOwned(file);
+      const keyFd=openSync(file,'wx',0o600);created=file;try{restrictPrivatePathSync(file);writeFileSync(keyFd,key!);}finally{closeSync(keyFd);}assertOwned(file);
       const next:State={version:1,revision:old.revision+1,entries:[...old.entries,{id,provider:input.provider,name,createdAt:new Date().toISOString(),operationId:input.operationId}]};
       temporary=join(this.directory,'registry-'+randomUUID()+'.next');const registryFd=openSync(temporary,'wx',0o600);try{restrictPrivatePathSync(temporary);writeFileSync(registryFd,JSON.stringify(next)+'\n');}finally{closeSync(registryFd);}renameSync(temporary,join(this.directory,'registry.json'));temporary=undefined;created=undefined;
       return {revision:next.revision,credentialRef:id,provider:input.provider};

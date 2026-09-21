@@ -1,3 +1,4 @@
+import { normalizeApiKey } from '../core/api-key.js';
 import type { IncomingMessage } from 'node:http';
 import { ManagementError } from '../contracts/management.js';
 import type { SelfSetupManagement } from '../contracts/self-setup.js';
@@ -19,7 +20,7 @@ export async function selfSetupRoute(req:IncomingMessage,url:URL,setup:SelfSetup
  const controller=new AbortController();const abort=()=>controller.abort();req.once('aborted',abort);
  try{
   switch(url.pathname){
-   case '/api/self-setup/credentials':exact(b,['instanceId','provider','key','expectedRevision','operationId']);if(b.provider!=='deepseek'&&b.provider!=='dashscope')invalid();reply(await setup.saveCredential({instanceId,provider:b.provider,key:text(b.key,4096),expectedRevision:revision(b.expectedRevision),operationId:text(b.operationId)}));break;
+   case '/api/self-setup/credentials':exact(b,['instanceId','provider','key','expectedRevision','operationId']);if(b.provider!=='deepseek'&&b.provider!=='dashscope')invalid();reply(await setup.saveCredential({instanceId,provider:b.provider,key:normalizeApiKey(b.key)??invalid(),expectedRevision:revision(b.expectedRevision),operationId:text(b.operationId)}));break;
    case '/api/self-setup/settings':exact(b,['instanceId','expectedRevision','settings']);reply(await setup.saveSettings({instanceId,expectedRevision:revision(b.expectedRevision),settings:b.settings as never}));break;
    case '/api/self-setup/reference':exact(b,['instanceId','operationId','filename','audioBase64']);reply(await setup.uploadReference({instanceId,operationId:text(b.operationId),filename:text(b.filename,200),audioBase64:text(b.audioBase64,28*1024*1024)},controller.signal));break;
    case '/api/self-setup/voice/prepare':exact(b,['instanceId','referenceId','label','targetModel','credentialRef','configRevision','text']);if(b.targetModel!=='MiniMax/speech-2.8-turbo'&&b.targetModel!=='MiniMax/speech-2.8-hd')invalid();reply(await setup.prepareVoice({instanceId,referenceId:text(b.referenceId),label:text(b.label,120),targetModel:b.targetModel,credentialRef:text(b.credentialRef),configRevision:revision(b.configRevision),text:text(b.text,4000)},controller.signal));break;

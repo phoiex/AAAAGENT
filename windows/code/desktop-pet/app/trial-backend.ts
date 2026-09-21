@@ -1,3 +1,4 @@
+import { normalizeApiKey, MAX_API_KEY_FILE_BYTES } from '../core/api-key.js';
 import { homedir } from 'node:os';
 import { SqliteMemoryImportManagement } from '../memory/import-management.js';
 import { HistoricalMemoryTransport, historicalMemoryInputBytes, memoryImportConfiguration, observedImportEndpoint } from './memory-import.js';
@@ -194,9 +195,9 @@ export function keyReader(filename: string, configuration: TrialConfiguration, c
       || activation.configSha256 !== createHash('sha256').update(raw).digest('hex')
       || JSON.stringify(JSON.parse(raw)) !== JSON.stringify(configuration)) throw new Error('Trial is not active');
     const actual = realpathSync(filename), local = relative(realpathSync(configuration.projectRoot), actual), info = statSync(actual);
-    if (!isAbsolute(filename) || !isOutside(realpathSync(configuration.projectRoot), actual) || !isPrivateFileSync(actual, info)) throw new Error('Restricted external trial credential file required');
-    const key = readFileSync(actual, 'utf8').trim();
-    if (!/^sk-[A-Za-z0-9_-]+$/.test(key)) throw new Error('Trial credential must contain exactly one key');
+    if (!isAbsolute(filename) || !isOutside(realpathSync(configuration.projectRoot), actual) || info.size > MAX_API_KEY_FILE_BYTES || !isPrivateFileSync(actual, info)) throw new Error('Restricted external trial credential file required');
+    const key = normalizeApiKey(readFileSync(actual, 'utf8'));
+    if (key === undefined) throw new Error('Trial credential must contain exactly one key');
     return key;
   };
 }
