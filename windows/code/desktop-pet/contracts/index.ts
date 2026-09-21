@@ -74,6 +74,8 @@ export interface MemoryReference {
   readonly sourceIds: readonly string[];
 }
 export interface ConversationMessage {
+  readonly emotionObservations?: readonly import('./emotion-state.js').EmotionObservation[];
+  readonly emotionSnapshot?: import('./emotion-state.js').EmotionMessageSnapshot;
   readonly origin?: RecordOrigin;
   readonly characterId: CharacterId;
   readonly id: string;
@@ -82,6 +84,7 @@ export interface ConversationMessage {
   readonly createdAt: string;
 }
 export interface DialogueContext extends Scoped {
+  readonly emotionBackground?: import('./emotion-state.js').EmotionBackground;
   readonly characterPrompt: string;
   readonly recent: readonly ConversationMessage[];
   readonly summary: string;
@@ -104,6 +107,7 @@ export interface DialogueRequest extends Scoped {
   readonly memoryPending?: import('./memory-lifecycle.js').MemoryTurnPending;
 }
 export interface DialogueReply extends Scoped {
+  readonly emotionAssessment?: import('./emotion-state.js').EmotionAssessment;
   /** Spoken words shared unchanged by display, assistant storage and TTS; stage directions belong in expression. */
   readonly text: string;
   readonly expression: ExpressionIntent;
@@ -224,3 +228,5 @@ export interface MediaStorePort {
 export * from './memory-import.js';
 
 export type * from './self-setup.js';
+
+export type * from './emotion-state.js';

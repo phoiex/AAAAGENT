@@ -59,9 +59,13 @@
 
 ## 情绪记录怎样使用
 
-视频入口最多处理这一轮采集的三帧，做七类判断：中性、开心、悲伤、愤怒、恐惧、厌恶、惊讶。语音转写与图像判断分离；只有 ASR 返回合法的音频情绪标注时才带入音频情绪。模型未提供标注时，保留缺失状态。
+Windows 0.1.2 在 **管理页 → 记忆 → 当前情绪** 展示三个层次：每条消息的观察 O、用户持续情绪 U、桌宠持续心情 M。用户与桌宠状态分别维护；消息保存当时快照，后续推测单独显示，不改写历史。升级自动创建所需表；不会为旧消息补造情绪快照。
 
-情绪观察可能有误，缺失与无效也有独立状态。评分实现可能用零作数值回退，但管理页不能因此把它写成“用户情绪中性”或“情绪强度确定为零”。被选入长期记忆的情绪相关内容仍须有来源引用。
+文字及近期对话通过现有对话请求提供情绪推测；有效音频标注、视频观察及用户明确说明也可作为来源。页面保留来源和置信度，未知强度为空（null），不等于零；缺少或损坏的模型字段不更新状态，聊天正文仍正常处理。视频保留有限七类判断，音频只采用合法返回标注。
+
+最近完整问答和相关记忆优先占用输入预算，情绪背景只使用剩余空间；长期记忆公式、E 与原半衰期保持。普通状态更新不会使当前回复失效；纠正、删除或屏蔽来源时，依赖它的状态和后续引用也受来源校验约束。
+
+后台增强推测接口已预留，生产中的增强模型与 thinking 尚未配置。合成测试验证了接线、持久化、隐私失效和并发保护，真实情绪理解效果仍需使用中确认。
 
 ## 网页里可以管理什么
 
@@ -138,9 +142,13 @@ Relevance uses keyword and phrase matching, with a small set of relation rules. 
 
 ### Emotional context
 
-Optional video processing classifies up to three captured frames into seven categories: neutral, happy, sad, angry, fear, disgust and surprise. ASR is separate and authoritative for transcription. Audio emotion is included only for a valid returned annotation; missing annotations remain marked as missing.
+On Windows 0.1.2, **Management → Memory → Current emotion** shows each message's observation (O), sustained user emotion (U) and sustained companion mood (M). User and companion states are independent. Each message freezes the states at that time; later analyses are displayed separately and never rewrite the original snapshot. The required tables are created on upgrade; old messages receive no invented snapshots.
 
-Observations may be uncertain, missing or invalid. A numerical fallback of zero must not be described as an observed neutral state. Long-term emotional records retain source references.
+Text and recent dialogue provide emotion assessments through the existing dialogue request. Valid audio annotations, video observations and explicit user statements can also provide evidence. Sources and confidence remain visible; unknown intensity is null, not zero. Missing or malformed model fields leave state unchanged without breaking the reply. Video retains limited seven-category classification, and only valid returned audio annotations are used.
+
+Recent complete turns and relevant memories take input-budget priority, with emotion context using remaining space. The existing long-term memory formula, E and half-lives are unchanged. Ordinary emotion updates do not invalidate an in-flight reply; corrections, deletion and blocked sources still invalidate dependent states and later references.
+
+The stronger background-inference interface is available, but no stronger model or thinking configuration is enabled. Synthetic tests cover wiring, persistence, privacy invalidation and concurrency; real emotional understanding still requires use-based validation.
 
 ### Import past chats
 

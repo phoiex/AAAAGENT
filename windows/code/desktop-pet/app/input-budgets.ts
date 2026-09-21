@@ -1,3 +1,4 @@
+import { EMOTION_RESPONSE_RULES } from '../providers/emotion-inference.js';
 import type { DialogueContext } from '../contracts/index.js';
 import type { MemoryTurnInput, SummaryInput } from '../contracts/memory-lifecycle.js';
 import { SUMMARY_PROMPT } from '../providers/memory-lifecycle-prompt.js';
@@ -9,7 +10,7 @@ import { DIALOGUE_RESPONSE_RULES } from '../companion/dialogue-rules.js';
  * These are not exact tokenizer counts. No bound is applied to the reply's output length. */
 export function contextInputUpperBound(context: DialogueContext, currentText: string): number {
   return Buffer.byteLength(JSON.stringify({ context, currentText }), 'utf8') + 4096
-    + Buffer.byteLength(JSON.stringify(`\n${DIALOGUE_RESPONSE_RULES}`), 'utf8');
+    + Buffer.byteLength(JSON.stringify(`\n${DIALOGUE_RESPONSE_RULES}\n${EMOTION_RESPONSE_RULES}`), 'utf8');
 }
 export function memoryTurnInputUpperBound(input: MemoryTurnInput, mode: MemoryWireMode = 'numeric-v1'): number {
   const format = buildMemoryTurnFormat(input, mode);

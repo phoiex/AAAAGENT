@@ -1,16 +1,22 @@
-# AAAAGENT Windows 开发版
+# AAAAGENT Windows 0.1.2 开发版
 
 [项目首页](../README.md) · [平台差异](../docs/PLATFORMS.md) · [验证记录](WINDOWS-VALIDATION.md)
 
 Windows 版使用 Electron 桌面窗口和独立 Node.js 后端，支持本地 Live2D 展示、透明置顶、拖动缩放、全身/半身切换、文字输入及网页控制台。源码入口是 **`windows/code/desktop-pet/`**。
 
-2026-09-17 在 Windows 11 x64 / Node 22.14.0 上重新验证，修复了文件身份校验、人工编辑记录的上下文保留和退出清理问题。完整结果见[本次验证](WINDOWS-VALIDATION.md#2026-09-17-windows-reproduction)。这是源码开发版，没有签名安装器；Windows Codex app-server 接入见下文；本次自助配置更新没有重验 Windows 真机。
+2026-09-19 在 Windows 11 x64 / Node 22.14.0 上完成 0.1.2 适配：新增独立情绪状态与网页查询，验证旧聊天导入、自助配置及 Windows 工作转交。完整结果与限制见[本次验证](WINDOWS-VALIDATION.md#2026-09-19-windows-update)。这是源码开发版，没有签名安装器。
+
+## 0.1.2 新功能与升级
+
+在 **控制台 → 记忆 → 当前情绪** 查看用户情绪、桌宠心情、每条消息当时的快照和后续分析。两个主体分别保存；来源被纠正、删除或屏蔽后，相关状态按来源校验失效。未知强度显示“未评估”，不会当作零或中性。文字推测复用现有对话请求，未启用额外后台增强模型。参见[记忆说明](docs/MEMORY.md#情绪记录怎样使用)。
+
+已有安装先退出桌宠，执行第 3 节的 `build:windows`、`refresh:runtime` 再启动。保留原 `.local/`、外部 Key 和本地模型资源；新情绪表自动创建，旧聊天不会补造历史快照。旧聊天导入仍从 **记忆 → 导入旧聊天** 单独启动。
 
 ## 本次自助配置更新 / Self-service setup
 
-完成后端编译后可先运行 `npm.cmd run configure-local` 打开本机网页，无需预先手写 Key/音色 JSON。网页支持 DeepSeek 与百炼 Key、模型预设、自己的参考音频和两次独立费用确认；先开通对应百炼模型并确认账户余额，再保存 Key。已有配置从运行控制台修改。完整步骤及英文见 [Setup](docs/SETUP.md)。Windows ACL/runner 身份问题仍待修复，下文保留对应版本的真机记录。
+完成后端编译后可先运行 `npm.cmd run configure-local` 打开本机网页，无需预先手写 Key/音色 JSON。网页支持 DeepSeek 与百炼 Key、模型预设、自己的参考音频和两次独立费用确认；先开通对应百炼模型并确认账户余额，再保存 Key。已有配置从运行控制台修改。完整步骤及英文见 [Setup](docs/SETUP.md)。0.1.1 的 Windows ACL/文件身份修复继续保留；本次设置测试 49 项通过、4 项 Unix 专属检查跳过，详见验证记录。
 
-After backend compilation, `npm.cmd run configure-local` opens local first-run setup without pre-existing keys, voice metadata or JSON. Enable the matching Bailian models before use. See [English setup](docs/SETUP.md#english). Historical Windows validation is version-specific; existing ACL/runner failures and the pause on additional Windows CI remain.
+After backend compilation, `npm.cmd run configure-local` opens local first-run setup without pre-existing keys, voice metadata or JSON. Enable the matching Bailian models before use. See [English setup](docs/SETUP.md#english). Windows ACL/file identity fixes are retained. This update passed 49 setup tests, with four Unix-specific checks skipped; setup and emotion regressions are available through the npm commands in the validation report.
 
 ## 1. 准备环境和资源
 
@@ -82,7 +88,7 @@ npm.cmd start
 
 覆盖值必须是有限数字，且位于模型声明的参数范围内；每帧都会应用。适合固定本地外观开关，不适合覆盖口型等需要连续动画的参数。具体模型参数、素材和私人配置不提交到公共仓库。
 
-## 5. Windows 任务派发（0.1.1）
+## 5. Windows 任务派发（沿用 0.1.1 适配器）
 
 ### Codex
 
@@ -154,6 +160,8 @@ UI 检查需要实际模型与 SDK，其他测试使用合成数据。`doctor` �
 
 Use the separate `windows/code/desktop-pet` tree with Windows x64 and Node.js 24 LTS (minimum 22.12). Bring your authorized rig and Cubism SDK, then run `npm.cmd ci` and `npm.cmd run dev`. The preview echoes input offline. The local `.npmrc` prevents a global Bash/WSL script-shell setting from installing Linux native modules into this Windows project.
 
-For real services, run `npm.cmd run build:windows`, prepare external configuration and restricted credential files, rebind genuine voice metadata to the Windows path, configure with `--activate`, then run `npm.cmd start`. Quit before rebuilding and run `npm.cmd run refresh:runtime` to register changes without losing personal data. Optional `parameterOverrides` stay in the ignored local mapping. See the [validation record](WINDOWS-VALIDATION.md#2026-09-17-windows-reproduction) for measured results and limits.
+For real services, run `npm.cmd run build:windows`, prepare external configuration and restricted credential files, rebind genuine voice metadata to the Windows path, configure with `--activate`, then run `npm.cmd start`. Quit before rebuilding and run `npm.cmd run refresh:runtime` to register changes without losing personal data. Optional `parameterOverrides` stay in the ignored local mapping. See the [validation record](WINDOWS-VALIDATION.md#2026-09-19-windows-update) for measured results and limits.
 
 Windows 0.1.1 adds official Codex app-server dispatch and native Harness work with drive-qualified directories. Both were exercised through the real confirmation/receipt workflow. Harness is an external installation; use the same DSH_HOME and PET_HARNESS_HOME in both processes. Interactive tool approvals must be handled in the native application. macOS source and documentation are unchanged.
+
+Windows 0.1.2 adds independent emotion states and **Memory → Current emotion**, with frozen message snapshots and source invalidation. Unknown intensity stays unknown. It also validates chat import and web-based key/model/voice setup. No additional background emotion model is enabled.

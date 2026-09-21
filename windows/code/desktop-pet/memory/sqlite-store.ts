@@ -1,3 +1,4 @@
+import { SqliteEmotionState } from './emotion-state.js';
 import {PendingMutations} from './pending-mutations.js';
 import Database from 'better-sqlite3';
 import { createHash, randomUUID } from 'node:crypto';
@@ -54,6 +55,7 @@ export class SqliteMemoryStore implements CompanionProfilePort {
   readonly dynamics: SqliteMemoryDynamics;
   readonly recall: SqliteMemoryRecall;
   readonly imports: SqliteImportedMemory;
+  readonly emotion: SqliteEmotionState;
   readonly filename: string;
   #closed = false;
 
@@ -128,8 +130,9 @@ export class SqliteMemoryStore implements CompanionProfilePort {
       this.pending=new PendingMutations(this.#db);
       this.lifecycle = new SqliteLifecycleState(this.#db, this);
       this.dynamics = new SqliteMemoryDynamics(this.#db, this);
-      this.recall = new SqliteMemoryRecall(this.#db, this);
+      this.recall = new SqliteMemoryRecall(this.#db, this, {affinity:(scope,sources)=>this.emotion.affinity(scope,sources)});
       this.imports = new SqliteImportedMemory(this.#db, this);
+      this.emotion = new SqliteEmotionState(this.#db,this);
       this.cleanup();
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -152,11 +155,11 @@ export class SqliteMemoryStore implements CompanionProfilePort {
   #open(): void { if (this.#closed) throw new Error('memory_store_closed'); }
   #backing(role: CharacterId) { this.#open(); assertCharacter(role); return new SqliteLedgerBacking(this.#db, role); }
   #ledger(scope: TurnScope) { const owned = bindScope(scope, scope.characterId); return new RoleMemoryLedger(owned.characterId, this.#backing(owned.characterId)); }
-  #transaction<T>(fn: () => T): T { this.#open(); return this.#db.transaction(() => { const result = fn(); this.dynamics?.sync(internalScope('companion')); this.recall?.invalidate(); return result; }).immediate(); }
+  #transaction<T>(fn: () => T): T { this.#open(); return this.#db.transaction(() => { const result = fn(); this.dynamics?.sync(internalScope('companion')); this.emotion?.invalidate(); this.recall?.invalidate(); return result; }).immediate(); }
 
   append(scope: TurnScope, messages: readonly ConversationMessage[]): void {
     this.#transaction(() => {
-      this.#ledger(scope).append(scope, messages);
+      for(const message of messages){this.#ledger(scope).append(scope, [message]);const record=this.inspect(scope,message.id)!;this.emotion.captureMessage(scope,{id:record.id,version:record.version},message.emotionObservations??[]);}
       this.#pruneTranscripts(this.now());
     });
   }
@@ -473,7 +476,7 @@ export class SqliteMemoryStore implements CompanionProfilePort {
     return expired;
   }
   /** Internal lifecycle transaction hook; does not checkpoint inside an active transaction. */
-  pruneForLifecycle(): readonly {characterId: CharacterId; id: string}[] { return this.#pruneTranscripts(this.now()); }
+  pruneForLifecycle(): readonly {characterId: CharacterId; id: string}[] { const expired=this.#pruneTranscripts(this.now());this.emotion?.invalidate();return expired; }
   cleanup(): CleanupResult {
     const result = this.#transaction(() => {
       const now = this.now();

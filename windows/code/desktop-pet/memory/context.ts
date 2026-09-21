@@ -9,6 +9,9 @@ export interface ContextReader {
   assertContextCurrent(scope: TurnScope, revision: number): void;
 }
 export interface ContextOptions {
+  readonly messageEmotions?: readonly import('../contracts/emotion-state.js').EmotionMessageSnapshot[];
+  readonly emotionBackground?: import('../contracts/emotion-state.js').EmotionBackground;
+  readonly memoryTieBreak?: (a:MemoryReference,b:MemoryReference)=>number;
   readonly prompts: Parameters<typeof characterPrompt>[1];
   readonly inputTokenBudget: number;
   readonly maxRecentMessages: number;
@@ -83,10 +86,20 @@ export function assembleContext(ledger: ContextReader, scope: TurnScope, text: s
     const score = options.relevance(structuredClone(memory), text);
     if (!Number.isFinite(score)) throw new Error('invalid_relevance_score');
     return { memory, score };
-  }).sort((a, b) => b.score - a.score || a.memory.id.localeCompare(b.memory.id));
+  }).sort((a, b) => b.score - a.score || options.memoryTieBreak?.(a.memory,b.memory) || a.memory.id.localeCompare(b.memory.id));
   for (const { memory, score } of candidates) {
     if (score <= 0 || context.memories.length >= options.maxMemories) { omittedIds.push(memory.id); continue; }
     consider(memory.id, { ...context, memories: [...context.memories, memory] });
+  }
+  if(options.messageEmotions?.length){
+    const metadata=new Map(options.messageEmotions.map(m=>[m.message.id,m]));
+    const candidate={...context,recent:context.recent.map(m=>metadata.has(m.id)?{...m,emotionSnapshot:metadata.get(m.id)!}:m)};
+    const tokens=count(candidate);if(tokens<=options.inputTokenBudget){context=candidate;countedInputTokens=tokens;}
+  }
+  // Optional emotion metadata receives remaining space only after recent dialogue, summaries and relevant memories.
+  if(options.emotionBackground){
+    const candidate={...context,emotionBackground:options.emotionBackground};
+    const tokens=count(candidate);if(tokens<=options.inputTokenBudget){context=candidate;countedInputTokens=tokens;}
   }
   ledger.assertContextCurrent(owned, data.revision);
   return { context: structuredClone(context), revision: data.revision, countedInputTokens, selectedIds, omittedIds };

@@ -262,6 +262,7 @@ export class SqliteLifecycleState {
           return { ...base, status: 'needs_clarification' as const, clarification: plan.clarification };
         }
         const {results,affectedIds}=applySourcePlan(this.db,this.store,ticket.input,plan,{prune:!this.managementCurrents.has(ticket.input.currentMessageId)});
+        this.store.emotion.invalidate();
         this.store.recall.invalidate();
         const outcome:MemoryTurnOutcome={...base,status:affectedIds.length?'applied':'unchanged',results,affectedIds,retrievalInvalidated:affectedIds.length>0,rejectionCode:null};
         this.db.prepare('INSERT INTO memory_turn_outcomes(character_id,current_message_id,scope_json,text_hash,plan_hash,outcome_json) VALUES(?,?,?,?,?,?)')
@@ -290,6 +291,17 @@ export class SqliteLifecycleState {
       this.assertReady();
       this.store.assertContextCurrent(scope, snapshot.revision);
       const sources = snapshot.selectedIds.map(id => { const record = this.store.inspect(scope, id)!; return {id, version: record.version}; });
+      const addEmotionSources=(background:import('../contracts/emotion-state.js').EmotionBackground|undefined)=>{
+        for(const state of background?[background.user,background.companion]:[])for(const ref of state.observation?.sources??[]){
+          const actual=this.store.inspect(scope,ref.id);if(!actual||actual.state!=='active'||actual.version!==ref.version)throw new MemoryRuleError('stale_context');
+          if(!sources.some(s=>s.id===ref.id&&s.version===ref.version))sources.push({...ref});
+        }
+      };
+      addEmotionSources(context.emotionBackground);
+      for(const message of context.recent){addEmotionSources(message.emotionSnapshot?.background);for(const obs of message.emotionSnapshot?.observations??[])for(const ref of obs.sources){
+        const actual=this.store.inspect(scope,ref.id);if(!actual||actual.state!=='active'||actual.version!==ref.version)throw new MemoryRuleError('stale_context');
+        if(!sources.some(s=>s.id===ref.id&&s.version===ref.version))sources.push({...ref});
+      }}
       const candidate=this.#currents.get(scopeKey(scope));
       const identity=candidate&&sameScope(candidate.scope,scope)?candidate:undefined;
       const record=identity?this.store.inspect(scope,identity.id):null;
@@ -349,6 +361,7 @@ export class SqliteLifecycleState {
       }
       const record:MemoryRecord={...(message.origin?{origin:message.origin}:{}),characterId:scope.characterId,id:message.id,kind:'transcript',state:'active',version:1,text:message.text,sources:[...sources.values()],createdAt:message.createdAt,deletedAt:null,reason:eligible?null:'display_only_assistant',message:structuredClone(message),perception:null,evidenceEligible:eligible};
       checkAbort();this.store.recall.consumed(context);backing.records.set(record.id,record);
+      this.store.emotion.captureMessage(scope,{id:record.id,version:record.version},message.emotionObservations??[]);
       for(const cache of backing.records.select('context_cache','active'))backing.records.set(cache.id,{...cache,state:'invalidated',text:'',version:cache.version+1,reason:'context_revision_changed'});
       backing.revision++;
       this.store.pruneForLifecycle();checkAbort();

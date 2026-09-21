@@ -101,6 +101,7 @@ export interface MemoryDynamicsSnapshot {
 }
 export type MemoryRecallOmission = 'hard_gate' | 'no_cue' | 'below_threshold' | 'limit' | 'budget' | null;
 export interface MemoryRecallCandidate {
+  readonly emotionAffinity?: 0 | 1;
   readonly source: SourceVersion;
   readonly activation: number;
   readonly importance: MemoryImportance;

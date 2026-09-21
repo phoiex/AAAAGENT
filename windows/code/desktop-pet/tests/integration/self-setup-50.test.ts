@@ -105,7 +105,7 @@ test('synthetic finish produces pinned prepared config and original activation C
  assert.equal((await f.request('/settings',{instanceId,expectedRevision:0,settings},'PUT')).status,200);
  const code=resolve(f.root,'code/desktop-pet'),sourceCode=fileURLToPath(new URL('../../../',import.meta.url));await mkdir(code,{recursive:true});
  await cp(resolve(sourceCode,'dist'),resolve(code,'dist'),{recursive:true});await cp(resolve(sourceCode,'tools'),resolve(code,'tools'),{recursive:true});await writeFile(resolve(code,'package.json'),JSON.stringify({type:'module'}));
- await symlink(resolve(sourceCode,'node_modules'),resolve(code,'node_modules'),'dir');
+ await symlink(resolve(sourceCode,'node_modules'),resolve(code,'node_modules'),process.platform==='win32'?'junction':'dir');
  const asset=resolve(code,'desktop/assets/local-model'),manifest=JSON.stringify({FileReferences:{Moc:'synthetic.moc3',Expressions:[],Motions:{}}}),moc='synthetic-not-a-live-model';
  await mkdir(asset,{recursive:true});await writeFile(resolve(asset,'pet.model3.json'),manifest);await writeFile(resolve(asset,'synthetic.moc3'),moc);
  const hash=(s:string)=>createHash('sha256').update(s).digest('hex'),fingerprint=hash('pet.model3.json\0'+hash(manifest)+'\nsynthetic.moc3\0'+hash(moc)+'\n');

@@ -59,8 +59,8 @@ test('all six registered baselines retain tariffs and limits without reading or 
     Object.defineProperty(model, 'extraPrivateData', { enumerable: true, get() { throw new Error('Unexpected field read'); } });
   }
   const catalog = managementAdapterCatalog(base);
-  assert.equal(catalog.length, 7); assert.equal(new Set(catalog.map(adapter => adapter.id)).size, 7);
-  for (const adapter of catalog.filter(adapter => adapter.id !== 'qwen-audio-tts')) {
+  assert.equal(catalog.length, 8); assert.equal(new Set(catalog.map(adapter => adapter.id)).size, 8);
+  for (const adapter of catalog.filter(adapter => !['qwen-audio-tts', 'minimax-tts'].includes(adapter.id))) {
     const slot = adapter.slots[0]!, original = base.models[slot]!, first = adapter.choices![0]!.configuration;
     for (const field of ['model', 'provider', 'endpoint', 'inputTokenLimit', 'outputTokenLimit',
       'inputMicrosPerToken', 'outputMicrosPerToken', 'reservationMicros'] as const) assert.equal(first[field], original[field]);
@@ -172,9 +172,12 @@ test('supported TTS voice changes the existing request and returns WAV without p
   await store.releaseScope(scope);
 });
 
-test('voice-clone protocols and unreviewed DeepSeek replacements are absent', () => {
+test('only reviewed MiniMax cloning is offered and it has no selectable voice before enrollment', () => {
   const catalog = managementAdapterCatalog(fixture());
-  assert.ok(catalog.every(adapter => adapter.capabilities.cloning === false));
+  assert.deepEqual(catalog.filter(adapter => adapter.capabilities.cloning).map(adapter => adapter.id), ['minimax-tts']);
+  for (const choice of catalog.find(adapter => adapter.id === 'minimax-tts')!.choices!) {
+    assert.deepEqual(choice.voices, []); assert.equal(choice.configuration.voice, undefined);
+  }
   assert.doesNotMatch(JSON.stringify(catalog.map(adapter => adapter.models)), /cosyvoice|deepseek-v4-flash|tts-vc/);
   assert.deepEqual(catalog.find(adapter => adapter.id === 'strict-deepseek')!.models, ['deepseek-v4-pro']);
 });

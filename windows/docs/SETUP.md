@@ -66,7 +66,7 @@ Mac Harness 使用本机服务与预设连接，当前适配协议为 0.1.5-rc.1
 
 `npm run test:setup` 使用合成音频、测试凭据和本机 HTTP 检查首次配置与音色流程；`npm run test:release` 检查已有发布功能。完成配置后，可用自己的账号和设备试用。
 
-Windows 的 ACL/runner 身份问题仍待修复，其他已知问题见版本对应的验证记录。
+Windows 0.1.1 已修复 ACL/文件身份问题，0.1.2 保留该修复。本机设置测试 49 项通过、4 项 Unix 专属检查跳过；参考音频使用合成数据，未调用付费克隆。结果和设备边界见 [Windows 验证](../WINDOWS-VALIDATION.md#2026-09-19-windows-update)。
 
 发布前在干净副本运行 `python3 tools/check-release.py`。排除 `node_modules`、构建产物、`.local/`、数据库、密钥、参考/样音、模型和 SDK，保留第三方许可。不要复制私有工程 Git 历史。检查器检查目录结构和已知敏感信息模式，素材许可需另行核对。
 
@@ -100,6 +100,6 @@ Install, launch and sign into/configure [DeepSeek Harness](https://github.com/de
 
 ### Evidence and publication
 
-`npm run test:setup` uses synthetic keys/audio and local HTTP. After setup, try the service with your own account and devices. The known Windows ACL/runner-identity issue is still awaiting a fix.
+`npm run test:setup` uses synthetic keys/audio and local HTTP. After setup, try the service with your own account and devices. Windows 0.1.2 retains the ACL/file-identity fixes from 0.1.1. On Windows, 49 setup tests passed and four Unix-specific checks were skipped; synthetic voice tests did not call paid cloning. See the [dated validation](../WINDOWS-VALIDATION.md#2026-09-19-windows-update).
 
 Keep `.local/`, external key files, databases, reference/sample audio, dependencies, builds, private models and SDKs out of Git. Use `python3 tools/check-release.py` on a clean release copy and preserve licensing. No credentials, private history, cloned voice material or external executor installations are bundled.

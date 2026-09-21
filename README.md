@@ -5,6 +5,8 @@
 | 修改时间 | 本次修改 |
 | --- | --- |
 | 2026-09-21 18:46 | 修复 Mac 和 Windows 对新格式 API Key 的误拒，完整保留含点号的密钥并统一保存、读取与请求传递。 |
+| 2026-09-19 19:58 | 修复 Windows 管理员进程的默认文件所有者误判，Windows 专项和发布回归在 GitHub Actions 通过。 |
+| 2026-09-19 19:52 | Windows 0.1.2 同步独立情绪状态与网页查询，完成旧聊天导入、自助配置和任务转交回归，并更新 Windows 文档。 |
 | 2026-09-19 19:15 | Mac版新增文字与近期对话的情绪推测，分别保存用户情绪、桌宠心情和消息快照，并提供网页查询。 |
 
 ## 预开发计划
@@ -56,7 +58,7 @@ AAAAGENT 是一个以 macOS 为主要平台、同时提供 Windows 开发版的�
 | 平台 | 状态与入口 |
 | --- | --- |
 | **macOS** | 当前主要维护和使用的完整版本；源码在根目录 `code/desktop-pet/`。查看 [Mac 安装说明](docs/SETUP.md)。 |
-| **Windows** | 独立 Electron 开发版；源码在 `windows/code/desktop-pet/`。查看 [Windows 安装说明](windows/README-WINDOWS.md)。已有独立 Codex app-server/Harness 适配；本次更新未重验 Windows，现有 ACL 问题保留。 |
+| **Windows** | 独立 Electron 开发版；源码在 `windows/code/desktop-pet/`。查看 [Windows 安装说明](windows/README-WINDOWS.md)。0.1.2 已同步独立情绪状态、消息快照与网页查询，并完成旧聊天导入、自助配置和任务转交回归；见 [Windows 验证](windows/WINDOWS-VALIDATION.md#2026-09-19-windows-update)。 |
 
 详情见 [平台差异与问题反馈](docs/PLATFORMS.md)。报告问题时请附系统版本、复现步骤和去除敏感信息的报错。两个目录分别安装依赖，勿混用配置或构建产物。
 
@@ -68,7 +70,7 @@ AAAAGENT 是一个以 macOS 为主要平台、同时提供 Windows 开发版的�
 
 ## 可以做什么
 
-本次独立情绪状态、消息快照和情绪页面已更新至 Mac 源码；Windows 尚待移植与验证，本次保留其现有源码。
+Windows 0.1.2 已同步独立情绪状态、消息快照和情绪页面；使用入口与数据边界见 [Windows 记忆说明](windows/docs/MEMORY.md#情绪记录怎样使用)。
 
 以下以 macOS 版的主要能力为参考；Windows 版的可用范围见上方平台说明。
 

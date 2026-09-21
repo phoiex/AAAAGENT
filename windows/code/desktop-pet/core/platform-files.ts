@@ -14,9 +14,15 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $env:PSModulePath = $PSHOME + '\\Modules'
 $p = $env:AAAAGENT_ACL_PATH
-$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$sid = $identity.User
 $acl = Get-Acl -LiteralPath $p
-if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 2 }
+$owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+# Elevated tokens can create files owned by their Administrators token owner.
+# Admit that exact case, not arbitrary group owners or unelevated membership.
+$principal = [Security.Principal.WindowsPrincipal]::new($identity)
+$adminOwner = $owner -eq 'S-1-5-32-544' -and $owner -eq $identity.Owner.Value -and $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if ($owner -ne $sid.Value -and -not $adminOwner) { exit 2 }
 if ($env:AAAAGENT_ACL_ACTION -eq 'restrict') {
   $item = Get-Item -LiteralPath $p -Force
   $acl = if ($item.PSIsContainer) { [Security.AccessControl.DirectorySecurity]::new() } else { [Security.AccessControl.FileSecurity]::new() }

@@ -1,6 +1,6 @@
 {
   "name": "desktop-pet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -24,7 +24,9 @@
     "test:windows:ui": "npm run build && npm run build:desktop && node tools/dev-desktop.mjs --smoke-test",
     "refresh:runtime": "node tools/refresh-runtime.mjs",
     "configure-local": "node tools/configure-local.mjs",
-    "test:setup": "npm run build && node --test dist/tests/integration/self-setup-50.test.js dist/tests/management/self-setup.test.js dist/tests/management/voice-setup.test.js dist/tests/providers/voice-enrollment.test.js dist/tests/providers/registered-voices.test.js"
+    "test:setup": "npm run build && node --test dist/tests/integration/self-setup-50.test.js dist/tests/management/self-setup.test.js dist/tests/management/voice-setup.test.js dist/tests/providers/voice-enrollment.test.js dist/tests/providers/registered-voices.test.js",
+    "test:emotion": "npm run build && node --test dist/tests/memory/emotion-state.test.js dist/tests/providers/emotion-inference.test.js dist/tests/integration/emotion-state-51.test.js dist/tests/integration/emotion-http-51.test.js dist/tests/integration/emotion-review.test.js",
+    "test:emotion:ui": "node --test tests/management/emotion-ui.test.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0",

@@ -210,7 +210,8 @@ test('approved priority controls ordinary context despite legacy relevance callb
   const searchOrder=ids(store.search(scope(),query,2,'lexical'));assert.deepEqual(searchOrder,['z-strong','a-relation']);
   const normal=await port(store,{maxRecentMessages:0,maxMemories:2}).context(scope(),query,null,signal());
   assert.deepEqual(normal.memories,[relation,strong]);
-  const oneBudget=contextInputUpperBound({...normal,memories:[relation]},query);
+  const {emotionBackground: _optionalEmotion, ...coreContext}=normal;
+  const oneBudget=contextInputUpperBound({...coreContext,memories:[relation]},query);
   const limited=await port(store,{maxRecentMessages:0,maxMemories:2,inputTokenBudget:oneBudget}).context(scope(),query,null,signal());
   assert.deepEqual(limited.memories,[relation]);assert.ok(contextInputUpperBound(limited,query)<=oneBudget);
   const relevance=await port(store,{maxRecentMessages:0,maxMemories:2,relevance:m=>m.id==='z-strong'?2:0}).context(scope(),query,null,signal());

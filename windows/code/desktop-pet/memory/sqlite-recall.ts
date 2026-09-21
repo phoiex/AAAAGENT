@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { DialogueContext, TurnScope, MemoryReference } from '../contracts/index.js';
 import { MEMORY_DAY_TIME_ZONE, type MemoryRecallCandidate, type MemoryRecallTrace, type MemoryRecallTracePage, type MemoryDynamicsPageQuery, type MemoryDynamicsSnapshot, type MemoryPolicyPreviewInput, type MemoryPolicyPreview } from '../contracts/memory-dynamics.js';
 import type { SourceVersion } from '../contracts/memory-lifecycle.js';
+import type { EmotionStatePort } from '../contracts/emotion-state.js';
 import type { SqliteMemoryStore } from './sqlite-store.js';
 import type { ContextSnapshot } from './context.js';
 import { decodeRecord, type RecordRow } from './sqlite-backing.js';
@@ -16,7 +17,7 @@ const paginate=(offset:number,limit:number):void=>{if(!Number.isSafeInteger(offs
 export interface RecallAssembly {readonly candidates:readonly MemoryRecallCandidate[];readonly policyRevision:number;readonly evaluatedAt:string;readonly dataRevision:number}
 export class SqliteMemoryRecall {
   private readonly actual=new WeakMap<DialogueContext,string>();
-  constructor(private readonly db:Database.Database,private readonly store:SqliteMemoryStore) {
+  constructor(private readonly db:Database.Database,private readonly store:SqliteMemoryStore,private readonly emotions?:Pick<EmotionStatePort,'affinity'>) {
     db.exec(`CREATE TABLE IF NOT EXISTS memory_recall_trace(id TEXT PRIMARY KEY,character_id TEXT NOT NULL,payload_json TEXT NOT NULL,sources_json TEXT NOT NULL);`);
   }
   rank(scope:TurnScope,query:string,at=this.store.now(),preview?:MemoryPolicyPreviewInput['policy'],effectiveFrom=this.store.now()):readonly MemoryRecallCandidate[] {
@@ -32,8 +33,10 @@ export class SqliteMemoryRecall {
       const score=gate?0:priority({cue:relevance,activity:activation,importance,emotion},parameters);
       const omission=gate?'hard_gate':relevance===0?'no_cue':score<0.35?'below_threshold':null;
       const cueKind=cue?.phrase?'phrase':cue?.relation&&relevance===0.8?'supported_relation':relevance>0?'keywords':'none';
-      return {source:{id:record.id,version:record.version},activation,importance,emotion,relevance,priority:score,matchedTerms:cue?.matchedKeywords??[],cueKind,selected:omission===null,omission} as MemoryRecallCandidate;
-    }).sort((a,b)=>b.priority-a.priority||a.source.id.localeCompare(b.source.id));
+      const emotionAffinity=this.emotions&&!gate?this.emotions.affinity(scope,this.sourceLineage(scope,record.sources)):undefined;
+      return {source:{id:record.id,version:record.version},activation,importance,emotion,relevance,priority:score,matchedTerms:cue?.matchedKeywords??[],cueKind,selected:omission===null,omission,
+        ...(emotionAffinity===undefined?{}:{emotionAffinity})} as MemoryRecallCandidate;
+    }).sort((a,b)=>b.priority-a.priority||(b.emotionAffinity??0)-(a.emotionAffinity??0)||a.source.id.localeCompare(b.source.id));
     let selected=0;
     return ranked.map(candidate=>candidate.selected&&++selected>6?{...candidate,selected:false,omission:'limit'}:candidate);
   }
@@ -42,6 +45,17 @@ export class SqliteMemoryRecall {
       const record=this.store.inspect(scope,item.source.id)!;
       return {characterId:scope.characterId,id:record.id,version:record.version,text:record.text,sourceIds:record.sources.map(ref=>ref.id),...(record.origin?{origin:record.origin}:{})};
     });
+  }
+  private sourceLineage(scope:TurnScope,initial:readonly SourceVersion[]):readonly SourceVersion[] {
+    const found=new Map<string,SourceVersion>(),queue=[...initial];
+    while(queue.length) {
+      const ref=queue.shift()!,key=`${ref.id}\0${ref.version}`;
+      if(found.has(key))continue;
+      const record=this.store.inspect(scope,ref.id);
+      if(!record||record.state!=='active'||record.version!==ref.version)continue;
+      found.set(key,ref);queue.push(...record.sources);
+    }
+    return [...found.values()];
   }
   snapshot(query:MemoryDynamicsPageQuery):MemoryDynamicsSnapshot {
     const scope=owned(query.characterId);paginate(query.offset,query.limit);

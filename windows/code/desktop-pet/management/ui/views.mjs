@@ -31,10 +31,10 @@ function contextSettings(a){const {s}=a,c=s.settingsDraft?.context;if(!c)return 
 }
 export function memoryView(a) {
   const {s}=a;
-  const tabs=[['dynamics','记忆总览'],['import','导入旧聊天'],['fragments','来源与片段'],['traces','实际召回'],['policy','策略微调'],['maintenance','维护与遗忘'],['records','纠正记录'],['prompt','角色设定 Prompt'],['context','上下文试算']];
+  const tabs=[['dynamics','记忆总览'],['emotion','当前情绪'],['import','导入旧聊天'],['fragments','来源与片段'],['traces','实际召回'],['policy','策略微调'],['maintenance','维护与遗忘'],['records','纠正记录'],['prompt','角色设定 Prompt'],['context','上下文试算']];
   return el('div',{},
-    el('div',{class:'tab-actions md-tabs'},tabs.map(([key,label])=>button(label,()=>{s.section=key;a.render();const load=({records:a.loadRecords,prompt:a.loadPrompt,context:a.loadContext,import:a.memoryImport.refresh})[key];if(load)load();else a.memoryDynamics.load(key);},{id:'memory-'+key,'aria-pressed':s.section===key}))),
-    s.section==='import'?a.memoryImport.view():s.section==='records'?recordsView(a):s.section==='prompt'?promptView(a):s.section==='context'?contextView(a):a.memoryDynamics.view(s.section));
+    el('div',{class:'tab-actions md-tabs'},tabs.map(([key,label])=>button(label,()=>{s.section=key;a.render();const load=({records:a.loadRecords,prompt:a.loadPrompt,context:a.loadContext,import:a.memoryImport.refresh,emotion:()=>a.emotion.refresh()})[key];if(load)load();else a.memoryDynamics.load(key);},{id:'memory-'+key,'aria-pressed':s.section===key}))),
+    s.section==='emotion'?a.emotion.view():s.section==='import'?a.memoryImport.view():s.section==='records'?recordsView(a):s.section==='prompt'?promptView(a):s.section==='context'?contextView(a):a.memoryDynamics.view(s.section));
 }
 function recordsView(a){const {s}=a;
  const queryForm=el('form',{class:'card searchbar',onSubmit:e=>{e.preventDefault();s.offset=0;a.loadRecords()}},el('div',{class:'form-grid'},select('记录类型','record-kind',s.kind,options(kinds),v=>{s.kind=v;s.offset=0;s.pageData=s.selected=null;a.loadRecords()}),field('搜索记录正文','record-query',s.query,v=>s.query=v,{placeholder:'输入关键词'}),select('记录状态','record-state',s.recordState,[{value:'active',label:'仅有效记录'},{value:'all',label:'全部状态'}],v=>{s.recordState=v;s.offset=0;a.loadRecords()})),el('div',{class:'actions'},el('button',{class:'primary',type:'submit',id:'record-search',disabled:s.pending.has('records')},s.pending.has('records')?'查询中…':'查询')));

@@ -18,17 +18,15 @@
 
 不要把 `windows/` 内容覆盖到根目录，两个版本分别保留自己的依赖锁文件、构建和启动方式。仓库中的鲸鱼娘资源包含静态设计稿与基础分层，模型绑定仍在制作中。
 
-本次情绪更新仅进入 Mac 源码：文字/近期对话推测、独立用户与桌宠状态、消息快照和网页查询。Windows 尚待移植与验证，现有 Windows 源码保持。
+Windows 0.1.2 已移植文字/近期对话推测、独立用户与桌宠状态、消息快照和网页查询，并保留已有 Windows 任务适配器。旧聊天导入与自助 Key/模型/音色设置也已完成 Windows 回归；详见 [Windows 说明](../windows/README-WINDOWS.md)。
 
 ## Windows 当前边界
 
 Windows 包提供 Electron 宿主、窗口交互、本地预览、平台路径及权限适配。离线预览会回显输入；接入真实模型需要按安装说明配置服务。
 
-移植作者随包提供了 [Windows 验证记录](../windows/WINDOWS-VALIDATION.md) 与 [离线压力测试记录](../windows/WINDOWS-STRESS-RESULTS.md)。麦克风、摄像头、云端 ASR/TTS、微信接收和唤醒效果请在自己的设备试用。
+2026-09-19 在 Windows 11 x64 / Node 22.14.0 / Electron 44.4.1 上验证了 0.1.2：核心 563、发布 138、Windows 专项 22、情绪后端 27、工作转交 64、压力 5 项通过；情绪界面 1 项测试覆盖 6 个 Chromium 场景；安装配置 49 项通过、4 项 Unix 专属检查跳过。测试组有重叠，不应相加为独立用例总数。
 
-本次发布准备在 macOS / Node 24.19 环境隔离复核了 Windows 源码：后端编译通过，平台测试组 11/11、发布组 115/115、合成压力组 5/5 通过。测试中的 Windows 专属 ACL、跨盘等分支未在这台 Mac 上执行；Electron、设备与云服务另需在 Windows 上检查。
-
-原较广测试库仍有 4 项已知失败，Mac 安装文档和 Windows 验证说明中都有记录。
+0.1.1 已修复此前的 ACL/文件身份、人工编辑记忆和退出清理问题；0.1.2 保留修复。版本对应的真实服务、桌面及设备验证边界见 [Windows 验证记录](../windows/WINDOWS-VALIDATION.md#2026-09-19-windows-update)，历史压力记录见 [压力测试](../windows/WINDOWS-STRESS-RESULTS.md)。麦克风、摄像头、ASR、微信投递和唤醒效果仍需设备验证。
 
 ## 怎样反馈问题
 
@@ -45,7 +43,7 @@ Windows 包提供 Electron 宿主、窗口交互、本地预览、平台路径�
 
 ## English
 
-The emotion update is included in the Mac source only: text/recent-dialogue inference, independent user and companion states, message snapshots and a web view. Windows porting and validation remain pending; its current source is unchanged.
+Windows 0.1.2 now includes text/recent-dialogue emotion inference, independent user and companion states, frozen message snapshots and a web view. Chat import and self-service key/model/voice setup are also covered by Windows regressions.
 
 **macOS is currently the most complete version. Windows is still being improved. Please report problems through this repository's Issues, where we will follow up.**
 
@@ -55,6 +53,6 @@ The Windows port includes an Electron host and platform-specific path, permissio
 
 Windows Codex forwarding uses its app-server adapter; follow the Windows setup guide. Physical audio/video, cloud speech, WeChat delivery, wake accuracy and real Harness dispatch require separate validation. Mac paths and activation fingerprints cannot be reused unchanged on Windows.
 
-The [Windows validation](../windows/WINDOWS-VALIDATION.md) and [stress-test notes](../windows/WINDOWS-STRESS-RESULTS.md) were supplied by the port's author. During release preparation, the Windows source was checked in isolation on macOS with Node 24.19: backend build passed, as did 11 platform-group tests, 115 release tests and five synthetic stress tests. Windows-only ACL and cross-drive branches were not exercised on this Mac. Electron, devices and cloud services were not started. Four known failures in the broader inherited test suite remain documented.
+The [Windows validation](../windows/WINDOWS-VALIDATION.md#2026-09-19-windows-update) records tests run on Windows 11 x64, Node 22.14.0 and Electron 44.4.1: 563 core, 138 release, 22 Windows, 27 emotion-backend, 64 work-dispatch and five stress tests passed. One Chromium test covers six emotion-page scenarios. Setup passed 49 tests, with four Unix-only checks skipped. Suites overlap. The ACL/file-identity, manual-memory and shutdown fixes from 0.1.1 remain in place. Real-service results and untested devices are dated separately in that report.
 
 To report a problem, open **Issues → New issue** and include OS/CPU/Node versions, platform directory and commit, reproduction steps, expected/actual behavior and sanitized logs. For voice issues, distinguish capture, transcription, generation and playback. Never attach credentials, login QR codes, sessions, personal databases, private chats or non-redistributable model assets. We will investigate and follow up in the issue.

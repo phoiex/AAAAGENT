@@ -1,117 +1,21 @@
-> **Windows development version:** Start with [README-WINDOWS.md](README-WINDOWS.md) or double-click `Start-Windows.cmd`. The original macOS documentation below is retained as background.
+# AAAAGENT Windows 0.1.2
 
+[中文](README.md) · [Project home](../README.en.md) · [Platform differences](../docs/PLATFORMS.md#english)
 
-**Self-service setup:** after building, run `npm run configure-local` (Windows: `npm.cmd`) to save DeepSeek/Bailian keys, choose adapted models and upload your own reference audio. Enable the relevant Bailian models first: saving a Key does not prove access. Harness and Codex must be installed, launched and authenticated separately; missing executors cannot receive tasks. See [setup](docs/SETUP.md#english).
+The Windows development version uses Electron with a separate Node.js backend. Its source is in `windows/code/desktop-pet/`; install dependencies and build there.
 
-<div align="center">
-  <img src="assets/original-design/whale-avatar.png" width="144" alt="AAAAGENT whale-girl character concept" />
-  <h1>AAAAGENT</h1>
-  <p>A desktop companion that talks, remembers, and connects your ideas to working agents.</p>
-  <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
-  <p><a href="docs/SETUP.md">Setup</a> · <a href="docs/MEMORY.md#english">Memory and context</a> · <a href="docs/LIVE2D.md#english">Bring your own Live2D</a> · <a href="assets/original-design/README.md#english">Whale-girl artwork</a></p>
-</div>
+- [Windows installation, upgrades and task dispatch](README-WINDOWS.md)
+- [Web-based key, model and voice setup](docs/SETUP.md#english)
+- [Memory, chat import and emotion state](docs/MEMORY.md#english)
+- [Windows validation and limitations](WINDOWS-VALIDATION.md#2026-09-19-windows-update)
+- [Windows changelog](CHANGELOG-WINDOWS.md)
 
----
+Version 0.1.2 ports independent user emotion and companion mood, frozen message snapshots, source invalidation and the **Memory → Current emotion** page. Text assessments use the existing dialogue request. No additional background model is enabled. Unknown intensity remains unknown; model predictions still require real-use evaluation.
 
-> **Noncommercial only · Attribution required.** All commercial use of original project material is prohibited. Credit AAAAGENT, its authors and [the source repository](https://github.com/phoiex/AAAAGENT) when using, citing, reproducing or adapting it. See [LICENSE](../LICENSE).
+Past-chat import and self-service key/model/voice setup are also covered by Windows regressions. Setup tests use synthetic credentials and audio; they do not register a paid cloud voice. Codex uses the Windows app-server transport, and DeepSeek Harness is installed separately. Both engines require their own configuration/login. Their real dispatch results from 0.1.1 and this update's regression results are dated separately in the validation report.
 
-AAAAGENT is a macOS-focused desktop companion with text and voice conversation, a WeChat entry point, and task forwarding. Describe a job, review the proposed task card, and confirm before it is sent to DeepSeek Harness or an existing Codex task.
+For offline preview, double-click `Start-Windows.cmd`. Bring your own licensed Live2D model and Cubism SDK; the preview echoes input. After configuring real services, use `npm.cmd start` from the Windows code directory.
 
-Companion conversation and work share an entry point without loading every project's engineering history into personal memory. Recent turns preserve continuity; long-term memories provide relevant recollections; project references locate work-specific context when needed.
+To upgrade an existing configured installation, exit the pet, run `npm.cmd run build:windows`, then `npm.cmd run refresh:runtime`, and start again. Keep your existing `.local/` data, external credential files and local assets. The update adds emotion storage without inventing emotion snapshots for old chats.
 
-**This is a source distribution.** It does not include credentials, private conversations or memory databases, WeChat login state, cloned-voice material, wake-model weights, third-party Live2D characters, or the Cubism SDK. The image above is project-produced fan artwork; Live2D rigging is still in progress.
-
-## Features
-
-| Capability | What the code provides |
-| --- | --- |
-| Voice conversation | Push-to-talk, live level feedback, interruption by new input, and separate transcription and dialogue services. |
-| Local wake detection | Opt-in keyword detection, wake-word removal, and silence-based recording completion. Compatible local weights must be supplied separately. |
-| Emotion-aware responses | Limited classification of video frames; audio emotion is used only when the ASR returns a valid annotation. Missing evidence remains missing. |
-| Speech and animation | TTS playback drives lip sync; thinking, work and interaction states feed character presentation. Available motions depend on the model. |
-| WeChat | Text and voice input; configurable text or audio-file replies. Native voice bubbles are currently unreliable. |
-| Agent forwarding | Harness for appropriate smaller search/organization jobs, Codex for planning and engineering. Explicit executor choices are preserved and dispatch requires confirmation. |
-| Web management | Persona prompts, stored memories, recall traces, context settings, speech configuration, presentation presets, and connection status. |
-
-Everyday questions should stay in conversation instead of creating engineering tasks. Task requests can be supplemented, confirmed or cancelled by voice. A normal progress query selects the most recently arranged task; listing everything requires an explicit request.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    U[Desktop / WeChat] --> I[Text / dedicated ASR]
-    V[Optional video frames] --> E[Limited emotion classification]
-    I --> R{Chat or work}
-    E --> C[Recent turns + summaries + relevant memory]
-    R -->|Chat| C
-    C --> L[DeepSeek dialogue]
-    L --> O[Text / speech / presentation]
-    R -->|Work| P[Complete task card]
-    P --> A[User confirmation]
-    A --> W[Harness / Codex]
-    W --> F[Status and result feedback]
-    L -.Background processing.-> M[Local memory store]
-    M --> C
-```
-
-DeepSeek handles text dialogue and structured processing. Dedicated ASR supplies the transcript, Qwen multimodal adapters process images, and the MiniMax adapter generates speech. Users supply service configurations and credentials. The application connects to existing Harness and Codex services rather than bundling another agent platform.
-
-## How memory works
-
-1. **Recent conversation comes first.** Within the input budget, the assembler selects a contiguous suffix of complete turns before adding summaries and relevant long-term memory.
-2. **Maintenance runs in the background.** Ordinary memory-processing failures should not block subsequent chat. Forgetting and correction requests have separate privacy safeguards.
-3. **Emotion keeps its provenance.** Emotional observations retain their sources and can influence responses and recall alongside importance and activation.
-4. **Project details are retrieved on demand.** Project names, short abstracts and references stay separate from full task bodies, receipts and execution history.
-5. **Users can inspect and edit.** The web interface exposes source records, edits, selected recall parameters, actual recall traces and failed processing items.
-
-See [Memory and context](docs/MEMORY.md#english) for formulas and code references. Current retrieval uses keyword and phrase matching.
-
-## Getting started
-
-Read [Setup](docs/SETUP.md) first. This is a developer-oriented source package. A complete animated desktop setup requires your own authorized Live2D model and SDK.
-
-```sh
-cd code/desktop-pet
-npm ci
-npm run build
-```
-
-Compilation does not log in to WeChat, call models or open the microphone. Follow the setup document for runtime configuration, launch steps and missing-resource checks.
-
-| Component | Bring your own |
-| --- | --- |
-| Text dialogue | Supported provider configuration and credentials |
-| ASR / image understanding | Service access and API configuration |
-| Speech output | MiniMax configuration and a voice you are authorized to use |
-| Live2D | Licensed model, Cubism SDK, parameter mappings and presentation presets |
-| Wake detection | Compatible keyword-spotting weights and local settings |
-| Work agents | Local Harness / Codex services and the intended projects and tasks |
-| WeChat | Your own account login and binding |
-
-## Live2D and character artwork
-
-**Different Cubism Live2D models can be integrated with local adaptation.** Parameter IDs, expression files, motion ranges and physics differ between characters. Replacing an image or copying a single model file is not sufficient. See [Live2D integration](docs/LIVE2D.md#english).
-
-The existing third-party character, textures, expressions, motions, screenshots and recordings are excluded. [DeepSeek whale-girl design resources](assets/original-design/README.md#english) document the included project-produced artwork and its provenance. These are static artwork and separated layers; Cubism rigging and continuous-animation validation have not been completed.
-
-## Repository layout
-
-```text
-README.md / README.en.md   Chinese and English home pages
-code/desktop-pet/          Backend, desktop, web, adapters and tests
-tools/                    Release checks and configuration helpers
-docs/                     Setup, memory and model integration
-assets/original-design/   Project-produced whale-girl fan artwork
-```
-
-## Privacy and current limits
-
-- Conversations, memories, project references and settings are stored locally. Selected cloud services still receive the text, audio or images needed for their calls.
-- Publish only this clean release directory. Do not add private runtime directories, databases, credentials, token-bearing links, server configurations or conversation logs.
-- Wake detection is opt-in and local; it does not continuously call a cloud recognizer. ASR, dialogue and TTS after wake-up may incur charges.
-- Desktop development targets macOS. No validated Windows or Linux desktop experience is claimed. Phone delivery, voices and new model animations require device testing.
-- Original project material is under the [Noncommercial and Attribution License](../LICENSE): **all commercial use is prohibited; use or citation requires credit to the project and authors, with a source link**. Third-party dependencies, SDKs and artwork retain their separate terms; see the [artwork notice](assets/original-design/README.md#english) and third-party notices in the source tree.
-
-When reporting an issue, provide a minimal reproduction without private data. Never attach credentials, a full conversation database or a login QR code to a public issue.
-
-**Memory → Import past chats** is now available in the source. See the [guide](docs/MEMORY.md#import-past-chats) for model costs and data handling. Synthetic regressions do not establish real Windows usage quality.
+Original project content is noncommercial and requires attribution to AAAAGENT, its authors and [the source project](https://github.com/phoiex/AAAAGENT). See [LICENSE](../LICENSE).

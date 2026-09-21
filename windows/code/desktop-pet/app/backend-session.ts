@@ -13,6 +13,7 @@ import { DesktopDeviceBridge } from './desktop-device-bridge.js';
 export interface PersistentMemoryPort extends MemoryPort { maintenanceInput(scope: TurnScope, text: string): MemoryMaintenanceInput }
 export interface BackendPorts extends Omit<DialoguePorts, 'playback' | 'memory' | 'memoryLifecycle' | 'backgroundMemory'> {
   memory: PersistentMemoryPort;
+  createEmotion?: () => import('../contracts/emotion-state.js').EmotionTurnPort;
   companionProfile?: CompanionProfilePort;
   consumeWakeHit?: (hit: unknown) => string | undefined;
   lifecycleMemory?: PersistentMemoryPort & MemoryTurnPort & SummaryPort;
@@ -106,8 +107,9 @@ export class BackendSession {
     const lifecyclePort = ports.backgroundMemory ?? ports.lifecycleMemory;
     const lifecycle = lifecyclePort ? new RoleMemoryLifecycleQueue(lifecyclePort, (scope, _error, kind) => reportBackgroundFailure(scope, kind ?? 'summary')) : undefined;
     this.maintenance = lifecycle ?? new RoleMaintenanceQueue(ports.memory, (scope, text) => ports.memory.maintenanceInput(scope, text), scope => reportBackgroundFailure(scope, 'memory'));
-    const { backgroundMemory: _background, isMemoryIndependent, classifyMemoryRequest, ...runtimePorts } = ports;
-    this.runtime = new DesktopRuntime({ ...runtimePorts, ...(lifecycle ? { memoryLifecycle: lifecycle } : {}),
+    const { backgroundMemory: _background, isMemoryIndependent, classifyMemoryRequest, createEmotion, ...runtimePorts } = ports;
+    const emotion=createEmotion?.()??ports.emotion;
+    this.runtime = new DesktopRuntime({ ...runtimePorts, ...(emotion?{emotion}:{}), ...(lifecycle ? { memoryLifecycle: lifecycle } : {}),
       ...(ports.backgroundMemory && lifecycle ? { backgroundMemory: {
         isIndependent: async (scope: TurnScope, text: string, signal: AbortSignal) => {
           const pending = lifecycle.observePending(scope.characterId);

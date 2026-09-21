@@ -10,6 +10,7 @@ export class DesktopRuntime {
   private readonly controller = new TurnController();
   private readonly pipeline: DialoguePipeline;
   private active: Active | undefined;
+  private lastEmotionScope: TurnScope | undefined;
   private cleanupPending: TurnScope | undefined;
   private commands = Promise.resolve();
   private readonly jobs = new Set<Promise<void>>();
@@ -35,6 +36,9 @@ export class DesktopRuntime {
     this.controller.cancel();
     this.presentation();
     const scope = active?.input.scope ?? this.cleanupPending;
+    const emotionScope=scope??this.lastEmotionScope;
+    if(emotionScope)this.ports.emotion?.cancel(emotionScope);
+    this.lastEmotionScope=undefined;
     if (!scope) return;
     this.cleanupPending = scope;
     const results = await Promise.allSettled([
@@ -98,6 +102,7 @@ export class DesktopRuntime {
           const input: TurnInput = { ...turn.input, ...(command.clientRequestId !== undefined ? { clientRequestId: command.clientRequestId } : {}), ...(command.type==='start_voice'&&command.wakeKeyword?{wakeKeyword:command.wakeKeyword}:{}) };
           const active: Active = { input, signal: turn.signal, finishing: false };
           this.active = active;
+          this.lastEmotionScope=input.scope;
           this.ports.work?.beginInput?.(input.scope, command.workBinding);
           this.emit({ type: 'turn', input }); this.presentation();
           if (turn.input.kind === 'text') { this.run(active); return; }
@@ -119,5 +124,6 @@ export class DesktopRuntime {
     await this.commands;
     this.closed = true;
     await this.stopCurrent();
+    await this.ports.emotion?.close();
   }
 }

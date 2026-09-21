@@ -1,4 +1,5 @@
 import { normalizeApiKey, MAX_API_KEY_FILE_BYTES } from '../core/api-key.js';
+import { EmotionTurns } from '../core/emotion-state.js';
 import { homedir } from 'node:os';
 import { SqliteMemoryImportManagement } from '../memory/import-management.js';
 import { HistoricalMemoryTransport, historicalMemoryInputBytes, memoryImportConfiguration, observedImportEndpoint } from './memory-import.js';
@@ -295,6 +296,7 @@ export async function startTrialBackend(environment: NodeJS.ProcessEnv = process
     const presentation = await PresentationSettingsStore.open(resolve(configuration.projectRoot, '.local/data/presentation-settings.json'),
       await readPresentationCatalog(configuration.projectRoot), policy => process.stdout.write(JSON.stringify({ channel: 'presentation_policy', policy }) + '\n'));
     const sessionPorts: BackendPorts = { memory, backgroundMemory: memory, mediaStore,
+      createEmotion:()=>new EmotionTurns(store!.emotion,store!),
       consumeWakeHit: hit => wake?.consumeHit(hit),
       companionProfile: store,
       ...(configuration.purpose==='user-trial' ? {classifyMemoryRequest:admission.foregroundRequest.bind(admission)} : {isMemoryIndependent:admission.isIndependent.bind(admission)}),
@@ -359,7 +361,7 @@ export async function startTrialBackend(environment: NodeJS.ProcessEnv = process
       management = await startRuntimeManagement(registeredConfiguration, configFile, settings, runtime,
         withStrictManagementForget(new SqliteManagementMemoryPort(store,memory),managementForget),presentation,
         pendingMemoryManagement(runtime.instanceId,memory,(scope,id)=>{const source=store!.inspect(scope,id);return source?.state==='active'&&source.message?.role==='user'?{text:source.text,createdAt:source.message.createdAt}:undefined;},
-          (scope,id,text)=>session!.retryPendingMemory(scope,id,text),()=>session!.pendingMemoryJobs().some(x=>x.queued+x.running>0)),wechat,wake,memoryImport);
+          (scope,id,text)=>session!.retryPendingMemory(scope,id,text),()=>session!.pendingMemoryJobs().some(x=>x.queued+x.running>0)),wechat,wake,memoryImport,store.emotion);
     }
     if (configuration.purpose === 'user-trial') {
       const classifier = new WorkIntentClassifier(endpoint('admission'), transport);

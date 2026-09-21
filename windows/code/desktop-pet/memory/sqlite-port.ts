@@ -36,7 +36,8 @@ export class SqliteMemoryPort implements MemoryPort {
     const snapshot = assembleContext({ characterId: owned.characterId, contextRecords: requested => {
       bindScope(requested, owned.characterId); return {...data,memories:this.store.recall.references(owned,candidates)};
     }, assertContextCurrent: (requested, revision) => this.store.assertContextCurrent(requested, revision) }, owned, text, privacyExcluded?null:perception, this.store.now(), {
-      ...this.options, maxMemories:Math.min(6,this.options.maxMemories), relevance:memory=>scores.get(memory.id)??0, prompts: { [owned.characterId]: this.store.prompt(owned) },
+      ...this.options, ...(!privacyExcluded?{emotionBackground:this.store.emotion.background(owned),messageEmotions:data.recent.flatMap(m=>{const value=this.store.emotion.message(owned,m.id);return value?[value]:[]})}:{}),
+      memoryTieBreak:(a,b)=>candidates.findIndex(x=>x.source.id===a.id)-candidates.findIndex(x=>x.source.id===b.id), maxMemories:Math.min(6,this.options.maxMemories), relevance:memory=>scores.get(memory.id)??0, prompts: { [owned.characterId]: this.store.prompt(owned) },
     });
     checkAbort(signal); return {...snapshot,privacyExcluded,recall:{candidates,policyRevision,evaluatedAt,dataRevision:data.revision}};
   }

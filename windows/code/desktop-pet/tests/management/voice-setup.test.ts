@@ -1,3 +1,4 @@
+import { isPrivateFileSync } from '../../core/platform-files.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, readFile, writeFile, stat, symlink, readdir, realpath, chmod } from 'node:fs/promises';
@@ -33,7 +34,7 @@ async function fixture(t:any){
 test('reference storage preserves exact bytes, private permissions and path-free metadata',async t=>{
  const f=await fixture(t),metadata=await f.references.get(f.reference.id),stored=await f.references.read(metadata.id);
  assert.deepEqual(stored.bytes,Buffer.from(wav()));assert.equal(metadata.durationMs,10000);assert.ok(!JSON.stringify(metadata).includes('private user name'));
- for(const name of await readdir(join(f.root,'references')))assert.equal((await stat(join(f.root,'references',name))).mode&0o777,0o600);
+ for(const name of await readdir(join(f.root,'references')))assert.equal(isPrivateFileSync(join(f.root,'references',name)),true);
  await assert.rejects(f.references.get('../outside'));
  await writeFile(join(f.root,'references',metadata.id+'.wav'),'changed');await assert.rejects(f.references.read(metadata.id));
 });
@@ -42,7 +43,7 @@ test('bad WAV, short/oversized duration, cancellation and symlink escape reject 
  for(const bytes of [Buffer.from('not wav'),pcm16Wav(new Float32Array(1600),16000)])await assert.rejects(f.references.save({bytes,filename:'a.wav'},signal()));
  const c=new AbortController();c.abort();await assert.rejects(f.references.save({bytes:wav(),filename:'a.wav'},c.signal));
  assert.equal((await readdir(join(f.root,'references'))).length,before);
- await mkdir(join(f.root,'target'));await symlink(join(f.root,'target'),join(f.root,'link'));await assert.rejects(VoiceReferenceStore.open(join(f.root,'link','refs')));
+ await mkdir(join(f.root,'target'));await symlink(join(f.root,'target'),join(f.root,'link'),process.platform==='win32'?'junction':'dir');await assert.rejects(VoiceReferenceStore.open(join(f.root,'link','refs')));
 });
 test('compressed audio uses bounded injected probe and never caller duration',async t=>{
  const f=await fixture(t);let calls=0;

@@ -1,5 +1,52 @@
 # Windows validation
 
+<a id="2026-09-19-windows-update"></a>
+## 2026-09-19 Windows update — 0.1.2
+
+Tested locally on Windows 11 x64, Node 22.14.0, npm 10.9.2 and Electron 44.4.1. This update ports the Mac emotion feature and exercises the upstream chat-import and self-service setup changes while retaining the Windows transport, ACL and shutdown fixes.
+
+| Check | Observed result |
+| --- | --- |
+| `build:windows` and resource doctor | Passed; all local resource checks true |
+| Core memory/provider suite | 563 passed, 0 failed |
+| `test:release` (including past-chat import) | 138 passed, 0 failed |
+| `test:windows` | 22 passed, 0 failed |
+| `test:setup` | 49 passed, 0 failed; four Unix-specific checks skipped |
+| `test:emotion` | 27 passed, 0 failed |
+| `test:emotion:ui` | One Electron/Chromium test passed, covering six scenarios; browser screenshot inspected |
+| Connection, desktop-work, forwarding, native-work and HTTP relay | 64 passed, 0 failed |
+| Windows stress suite | 5 passed, 0 failed |
+| Real configured backend | HTTP 200; 20-character Chinese reply, 231,316 bytes of generated TTS; no runtime errors |
+| Real emotion API after dialogue | HTTP 200; two persisted message snapshots, separate user/companion subjects, schema version 0.1.1 |
+| Configured Electron lifecycle | Two launches ready; both clean exits left no backend lock; Live2D screenshot inspected |
+
+The six UI scenarios cover empty/null state, independent subjects with frozen historical snapshots, rejected stale/invalid responses, escaped labels, pagination and inactive-section behavior, and refresh without polling or mutations. Tests run with the project's installed Electron and a local synthetic HTTP fixture; they need no WebKit installation, credentials or private assets.
+
+Windows-specific test fixes close SQLite connections before deleting fixture files, use directory junctions without requiring symlink privileges, assert private-file ACLs rather than POSIX mode bits, and update provider-catalog expectations for the new voice setup. The four skips concern Unix file/directory permission or ownership behavior; Windows ACL checks run separately. Suite counts overlap and must not be added as distinct cases. The existing Windows CI workflow is retained; setup, emotion backend and Chromium checks are available as npm commands and were run locally for this release.
+
+The first GitHub Actions run exposed an additional elevated-runner case: newly created files were owned by the Administrators token owner rather than the user SID. The Windows policy now admits that exact owner only when the current token is elevated and its default owner matches. Other owners and broad access grants remain rejected. The existing Windows tests cover this on the hosted runner. After the fix, both the 22-case Windows suite and 138-case release suite passed on GitHub Actions with Windows Server / Node 24.19.0: [verified run for 0ec5193](https://github.com/phoiex/AAAAGENT/actions/runs/35441556331). Both suites were also rerun successfully on the local machine.
+
+An initial desktop check encountered a stale backend lock from an exited process. The PID was verified absent and the lock was backed up before retrying; personal data was retained. The subsequent real backend and both normal desktop exits succeeded. An abnormal termination can still require the documented lock recovery.
+
+Emotion API schema version 0.1.1 is independent of application version 0.1.2. Existing data and local model appearance overrides were retained. New tables do not fabricate emotion history for earlier conversations. Runtime text assessments reuse the dialogue request; no extra background inference model is configured. These checks verify persistence and integration, not the accuracy of emotion understanding.
+
+Reproduce from `windows/code/desktop-pet/`:
+
+```powershell
+npm.cmd run build:windows
+npm.cmd test
+npm.cmd run test:release
+npm.cmd run test:windows
+npm.cmd run test:setup
+npm.cmd run test:emotion
+npm.cmd run test:emotion:ui
+npm.cmd run test:stress
+node --test dist/tests/harness/connection.test.js dist/tests/harness/desktop-work.test.js dist/tests/harness/forwarding.test.js dist/tests/harness/native-work.test.js dist/tests/harness/relay-http.test.js
+```
+
+Live Codex and Harness dispatch results remain dated **2026-09-17** below; this update reran their 64 automated work/relay cases, not a new real executor task. Paid voice cloning was not invoked; setup uses synthetic keys/audio and local HTTP. Physical microphone/camera, live ASR, actual speaker output, wake accuracy, WeChat login/delivery and Windows ARM64 remain unverified. Private keys, model/SDK files, audio, screenshots and databases are excluded from Git.
+
+
 <a id="2026-09-17-windows-reproduction"></a>
 ## 2026-09-17 Windows reproduction — 0.1.1
 

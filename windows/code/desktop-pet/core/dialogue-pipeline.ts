@@ -1,3 +1,4 @@
+import type { EmotionInferenceInput, EmotionTurnPort } from '../contracts/emotion-state.js';
 import { cleanWakeTranscript } from './wake-transcript.js';
 import { userFacingError } from './user-facing-error.js';
 import type { CapturedInput, DialogueProvider, MemoryPort, MediaStorePort, PerceptionProvider, PlaybackEvent, PlaybackPort, TtsProvider, TurnInput, TurnScope, DesktopEvent, PerceptionResult, DialogueContext, ConversationMessage } from '../contracts/index.js';
@@ -15,6 +16,7 @@ export interface BackgroundDialogueMemory extends Pick<BackgroundMemoryPort, 'fo
 }
 
 export interface DialoguePorts {
+  emotion?: EmotionTurnPort;
   /** Trusted channel policy; text output completes without any audio or playback events. */
   outputMode?: 'voice' | 'text';
   work?: import('../contracts/desktop-work.js').DesktopWorkPort;
@@ -83,7 +85,10 @@ export class DialoguePipeline {
         this.controller.finish(scope); this.presentation(); outcome = { status: 'handled' };
       } else {
       const userMessage: ConversationMessage = {characterId: scope.characterId, id: `${scope.turnId}:user`, role: 'user', text, createdAt: new Date().toISOString()};
-      await this.ports.memory.append(scope, [userMessage]);
+      const source={id:userMessage.id,version:1};
+      const observations=this.ports.emotion?.observations(scope,source,text,perception);
+      const capturedUser=observations?{...userMessage,emotionObservations:observations}:userMessage;
+      await this.ports.memory.append(scope, [capturedUser]);
       this.current(scope, signal);
       const background = this.ports.backgroundMemory;
       const independent = !!background;
@@ -116,6 +121,8 @@ export class DialoguePipeline {
       this.current(scope, signal); this.contextBelongs(scope, context);
       const validateContext = () => independent ? background!.assertContextCurrent(context) : this.ports.memoryLifecycle?.assertContextCurrent(context);
       validateContext();
+      let emotionInput:EmotionInferenceInput|null=null;
+      if(!memoryPending || memoryPending.request==='none')try{emotionInput=this.ports.emotion?.prepare(context,source,text)??null;}catch{/* Optional state stays unavailable. */}
       // Ambiguous requests get the resolver's question without another model turning it into an acknowledgement.
       const reply = memoryOutcome?.status === 'needs_clarification'
         ? { scope, text: memoryOutcome.clarification?.trim() ?? '', expression: { emotion: 'neutral', intensity: 0, delivery: '自然、温和地询问', gesture: null } }
@@ -123,6 +130,7 @@ export class DialoguePipeline {
       if (!reply.text) throw new Error('需要澄清的记忆请求缺少问题。');
       this.current(scope, signal); this.belongs(scope, reply);
       validateContext();
+      if(emotionInput)try{this.ports.emotion?.complete(emotionInput,reply.emotionAssessment);}catch{/* Emotion metadata cannot interrupt a reply. */}
       const assistantMessage: ConversationMessage = {characterId: scope.characterId, id: `${scope.turnId}:assistant`, role: 'assistant', text: reply.text, createdAt: new Date().toISOString()};
       if (independent) {
         await background!.appendForegroundAssistant(scope, assistantMessage, context, userMessage.id, signal);
@@ -174,6 +182,7 @@ export class DialoguePipeline {
       }
       }
     } catch (error) {
+      this.ports.emotion?.cancel(scope);
       const message = error instanceof Error ? error.message : String(error);
       if (error instanceof StaleTurnError || (signal.aborted && !playbackFailed)) outcome = {status: 'cancelled'};
       else {
