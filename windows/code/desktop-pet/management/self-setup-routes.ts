@@ -14,13 +14,14 @@ export async function selfSetupRoute(req:IncomingMessage,url:URL,setup:SelfSetup
   const kind=url.searchParams.get('kind');if(kind!=='demo'&&kind!=='activation')invalid();
   const data=await setup.sample({instanceId:text(url.searchParams.get('instanceId')),operationId:text(url.searchParams.get('operationId')),kind});audio(data.bytes,data.mimeType);return true;
  }
- const allowed:Record<string,string>={'/api/self-setup/credentials':'POST','/api/self-setup/settings':'PUT','/api/self-setup/reference':'POST','/api/self-setup/voice/prepare':'POST','/api/self-setup/voice/confirm':'POST','/api/self-setup/voice/retry':'POST','/api/self-setup/voice/cancel':'POST','/api/self-setup/finish':'POST'};
+ const allowed:Record<string,string>={'/api/self-setup/credentials/test':'POST','/api/self-setup/credentials':'POST','/api/self-setup/settings':'PUT','/api/self-setup/reference':'POST','/api/self-setup/voice/prepare':'POST','/api/self-setup/voice/confirm':'POST','/api/self-setup/voice/retry':'POST','/api/self-setup/voice/cancel':'POST','/api/self-setup/finish':'POST'};
  if(allowed[url.pathname]!==req.method)throw new ManagementError('not_found','没有这个自助配置操作。');
  const b=await body(url.pathname.endsWith('/reference')?28*1024*1024:undefined),instanceId=text(b.instanceId);
  const controller=new AbortController();const abort=()=>controller.abort();req.once('aborted',abort);
  try{
   switch(url.pathname){
    case '/api/self-setup/credentials':exact(b,['instanceId','provider','key','expectedRevision','operationId']);if(b.provider!=='deepseek'&&b.provider!=='dashscope')invalid();reply(await setup.saveCredential({instanceId,provider:b.provider,key:normalizeApiKey(b.key)??invalid(),expectedRevision:revision(b.expectedRevision),operationId:text(b.operationId)}));break;
+   case '/api/self-setup/credentials/test':exact(b,['instanceId','provider','credentialRef','operationId']);if(b.provider!=='deepseek'&&b.provider!=='dashscope')invalid();reply(await setup.testCredential({instanceId,provider:b.provider,credentialRef:text(b.credentialRef),operationId:text(b.operationId)}));break;
    case '/api/self-setup/settings':exact(b,['instanceId','expectedRevision','settings']);reply(await setup.saveSettings({instanceId,expectedRevision:revision(b.expectedRevision),settings:b.settings as never}));break;
    case '/api/self-setup/reference':exact(b,['instanceId','operationId','filename','audioBase64']);reply(await setup.uploadReference({instanceId,operationId:text(b.operationId),filename:text(b.filename,200),audioBase64:text(b.audioBase64,28*1024*1024)},controller.signal));break;
    case '/api/self-setup/voice/prepare':exact(b,['instanceId','referenceId','label','targetModel','credentialRef','configRevision','text']);if(b.targetModel!=='MiniMax/speech-2.8-turbo'&&b.targetModel!=='MiniMax/speech-2.8-hd')invalid();reply(await setup.prepareVoice({instanceId,referenceId:text(b.referenceId),label:text(b.label,120),targetModel:b.targetModel,credentialRef:text(b.credentialRef),configRevision:revision(b.configRevision),text:text(b.text,4000)},controller.signal));break;

@@ -1,3 +1,4 @@
+import { CredentialSmoke } from './credential-smoke.js';
 import { normalizeApiKey, MAX_API_KEY_FILE_BYTES } from '../core/api-key.js';
 import { isOutside, isPrivateFileSync } from '../core/platform-files.js';
 import { constants } from 'node:fs';
@@ -39,7 +40,7 @@ function safeError(error:unknown):never {
  if(error instanceof EnrollmentError)throw new ManagementError('invalid_request',error.code==='provider_not_enabled'?'请先在百炼开通对应模型；保存Key不代表模型可用。':'本次音色请求未完成，请查看状态；不会自动重试。');
  throw new ManagementError('unavailable','本地设置暂不可用，请检查文件权限或重新打开；原数据保持。');
 }
-/** Reads exactly one selected credential only following an explicit paid-action confirmation. */
+/** Reads exactly one selected credential only for an authorized provider action. */
 export async function readSetupKey(file:string,projectRoot:string):Promise<string>{
  const actual=await realpath(file),root=await realpath(projectRoot),part=relative(root,actual),before=await lstat(file);
  if(!isAbsolute(file)||!isOutside(root,actual)||before.isSymbolicLink()||!before.isFile()||!isPrivateFileSync(file,before)||before.size>MAX_API_KEY_FILE_BYTES)throw Error('credential_unavailable');
@@ -54,6 +55,7 @@ export function createSelfSetup(options:Options):SelfSetupManagement {
  const directory=resolve(base.projectRoot,'.local/data/voice-assets/self-setup'),referencesDirectory=resolve(directory,'references'),operationsDirectory=resolve(directory,'operations');
  const budget=new EvaluationBudget(base.budgetFile,base.budgetBatchId,base.limitMicros),shutdown=new AbortController();
  let referenceStore:Promise<VoiceReferenceStore>|undefined,voiceStore:Promise<VoiceSetupService>|undefined,tail:Promise<unknown>=Promise.resolve();
+ const smoke=new CredentialSmoke({fetch:options.fetch??fetch,signal:shutdown.signal,ready:()=>options.runtimeReady?.()!==false,key:async(ref,provider)=>{if(!credentials.list().some(c=>c.id===ref&&c.provider===provider&&c.status==='configured'))throw Error('credential_unavailable');return readSetupKey(credentials.file(ref,provider),base.projectRoot);}});
  const references=()=>referenceStore??=VoiceReferenceStore.open(referencesDirectory);
  const voice=()=>voiceStore??=(async()=>{
   if(!settings.registeredVoices)throw new ManagementError('unavailable','本地音色登记尚未就绪。');
@@ -68,6 +70,7 @@ export function createSelfSetup(options:Options):SelfSetupManagement {
   async snapshot(){return attempt(async()=>({apiVersion:1,instanceId,mode:options.mode,credentialRevision:managed.revision(),credentials:credentials.list().map(c=>({...c,provider:c.provider!,managed:c.managed!})),adapters:availableAdapters(base,settings.registeredVoices),settings:settings.snapshot(),
    references:await exists(referencesDirectory)?await(await references()).list():[],operations:await exists(operationsDirectory)?(await(await voice()).list()).map(projectOperation):[],budget:{mode:base.limitMicros===null?'unlimited':'bounded',limitMicros:base.limitMicros,currency:'CNY'},initialization:options.initialization?await options.initialization():{completed:options.mode==='runtime',blockers:[]},links}));},
   async saveCredential(input){identity(input.instanceId);return attempt(async()=>managed.save({provider:input.provider,key:input.key,expectedRevision:input.expectedRevision,operationId:input.operationId}));},
+  async testCredential(input){identity(input.instanceId);return smoke.test(input);},
   async saveSettings(input){identity(input.instanceId);return settings.save(input.expectedRevision,input.settings);},
   async uploadReference(input,signal){identity(input.instanceId);
    if(!/^[A-Za-z0-9_-]{8,100}$/.test(input.operationId)||!/^[A-Za-z0-9+/]+={0,2}$/.test(input.audioBase64)||input.audioBase64.length>Math.ceil(MAX_REFERENCE_BYTES/3)*4)throw new ManagementError('invalid_request','音频内容或上传操作标识无效。');

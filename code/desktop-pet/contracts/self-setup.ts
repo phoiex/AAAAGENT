@@ -1,5 +1,5 @@
 import type { CredentialInfo, ManagedSettings, ProviderAdapterInfo, SettingsSnapshot } from './management.js';
-export const SELF_SETUP_VERSION = '0.2.0' as const;
+export const SELF_SETUP_VERSION = '0.3.0' as const;
 export type SetupProvider = 'deepseek' | 'dashscope';
 export type SetupVoiceModel = 'MiniMax/speech-2.8-turbo' | 'MiniMax/speech-2.8-hd';
 export interface SetupIdentity { readonly instanceId:string }
@@ -26,12 +26,15 @@ export interface SelfSetupSnapshot {
   readonly links:{readonly dashscopeConsole:string;readonly dashscopeKeys:string;readonly voiceClone:string;readonly voicePricing:string;readonly deepseekKeys:string;readonly harness:string;readonly codex:string};
 }
 export interface SaveSetupCredential extends SetupIdentity { readonly provider:SetupProvider; readonly key:string; readonly expectedRevision:number; readonly operationId:string }
+export interface TestSetupCredential extends SetupIdentity { readonly provider:SetupProvider; readonly credentialRef:string; readonly operationId:string }
+export interface CredentialTestResult { readonly provider:SetupProvider; readonly credentialRef:string; readonly ok:boolean; readonly error:string|null; readonly httpStatus:number|null; readonly checkedAt:string; readonly scope:'model-list-authentication' }
 export interface UploadSetupReference extends SetupIdentity { readonly operationId:string; readonly filename:string; readonly audioBase64:string }
 export interface PrepareSetupVoice extends SetupIdentity { readonly referenceId:string; readonly label:string; readonly targetModel:SetupVoiceModel; readonly credentialRef:string; readonly configRevision:number; readonly text:string }
 export interface ConfirmSetupVoice extends SetupIdentity { readonly operationId:string; readonly expectedRevision:number; readonly costConsent:true }
 export interface SelfSetupManagement {
   snapshot():SelfSetupSnapshot|Promise<SelfSetupSnapshot>;
   saveCredential(input:SaveSetupCredential):Promise<{credentialRef:string;revision:number;provider:SetupProvider}>;
+  testCredential(input:TestSetupCredential):Promise<CredentialTestResult>;
   saveSettings(input:SetupIdentity&{expectedRevision:number;settings:ManagedSettings}):Promise<SettingsSnapshot>;
   uploadReference(input:UploadSetupReference,signal:AbortSignal):Promise<SetupReference>;
   prepareVoice(input:PrepareSetupVoice,signal:AbortSignal):Promise<SetupVoiceOperation>;
@@ -45,6 +48,7 @@ export interface SelfSetupManagement {
 /* Same-origin/Bearer required for every request, including samples. No requests on selection alone.
  GET /api/self-setup -> SelfSetupSnapshot (works before a runtime exists)
  POST /api/self-setup/credentials SaveSetupCredential -> {credentialRef,revision,provider}; never echo key
+ POST /api/self-setup/credentials/test TestSetupCredential -> CredentialTestResult; upstream failures remain HTTP200 results
  PUT /api/self-setup/settings {instanceId,expectedRevision,settings} -> SettingsSnapshot
  POST /api/self-setup/reference UploadSetupReference -> SetupReference; decoded audio <=20MiB, request<=28MiB
  POST /api/self-setup/voice/prepare PrepareSetupVoice -> SetupVoiceOperation; no cloud request
@@ -55,6 +59,6 @@ export interface SelfSetupManagement {
  POST /api/self-setup/voice/cancel {instanceId,operationId} -> SetupVoiceOperation
  GET /api/self-setup/voice/sample?instanceId=&operationId=&kind=demo|activation -> authenticated audio
  POST /api/self-setup/finish {instanceId,expectedRevision} -> {status:'prepared',requiresRestart:true}
- Runtime model/voice changes still require existing save + restart; no automatic app launch or model probe.
+ Runtime model/voice changes still require existing save + restart; no automatic app launch. Key-save UI tests authentication once; metadata refresh never tests.
  Browser secrets/audio stay in memory only; clear key field after save, never echo/localStorage/log.
  */

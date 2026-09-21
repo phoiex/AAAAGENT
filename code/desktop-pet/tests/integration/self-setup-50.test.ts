@@ -23,6 +23,7 @@ async function fixture(t:test.TestContext){
   if(address.includes('dashscope-file-mgr'))return new Response('');
   if(address.includes('demo.mp3'))return new Response('ID3synthetic');
   if(refusal)return new Response('',{status:403});
+  if(init.method==='GET')return Response.json(address.includes('deepseek')?{object:'list',data:[]}:{success:true,output:{models:[]}});
   const body=JSON.parse(String(init.body));
   return body.input.action==='voice_clone'?Response.json({output:{base_resp:{status_code:0},input_sensitive:false,input_sensitive_type:0,demo_audio:'https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/demo.mp3?Signature=synthetic-private'},usage:{characters:3}}):Response.json({output:{base_resp:{status_code:0},data:{status:2,audio:Buffer.from(pcm16Wav(new Float32Array(2400),24000)).toString('hex')}},usage:{characters:3}});
  }) as typeof fetch;
@@ -132,4 +133,17 @@ test('HTTP key save normalizes only outer whitespace, rejects injection, and pre
  const op=(await f.request('/voice/prepare',{instanceId,referenceId:reference.id,label:'测试',targetModel:'MiniMax/speech-2.8-turbo',credentialRef:saved.value.credentialRef,configRevision:0,text:'你好。'})).value;
  const cloned=await f.request('/voice/confirm',{instanceId,operationId:op.operationId,expectedRevision:op.revision,costConsent:true});assert.equal(cloned.value.phase,'clone_ready');
  assert.deepEqual(f.authorizations,['Bearer '+key,null,'Bearer '+key,null]);
+});
+
+// Actual loopback route, synthetic provider and isolated private storage.
+test('credential tests bind exact saved ref, do not select/delete keys, and keep upstream 403 out of local authorization',async t=>{
+ const f=await fixture(t),before=(await f.request()).value,instanceId=before.instanceId;
+ const saved=(await f.request('/credentials',{instanceId,provider:'deepseek',key:'fixture.new+key/value=',expectedRevision:0,operationId:'smoke-save'})).value;
+ const body={instanceId,provider:'deepseek',credentialRef:saved.credentialRef,operationId:'smoke-test'};
+ const pass=await f.request('/credentials/test',body);assert.equal(pass.status,200);assert.equal(pass.value.ok,true);assert.equal(f.authorizations.at(-1),'Bearer fixture.new+key/value=');
+ await f.request('/credentials/test',body);await f.request();assert.equal(f.calls.length,1);
+ f.setRefusal(true);const fail=await f.request('/credentials/test',{...body,operationId:'smoke-failure'});assert.equal(fail.status,200);assert.equal(fail.value.ok,false);assert.match(fail.value.error,/403/);
+ const after=(await f.request()).value;assert.deepEqual(after.settings,before.settings);assert.equal(after.credentials.find((c:any)=>c.id===saved.credentialRef).status,'configured');
+ const calls=f.calls.length;assert.equal((await f.request('/credentials/test',{...body,operationId:'smoke-wrong',provider:'dashscope'})).value.ok,false);assert.equal(f.calls.length,calls);
+ assert.equal((await f.request('/credentials/test',{...body,endpoint:'https://evil.invalid'})).status,400);assert.equal((await f.request('/credentials/test',{...body,instanceId:'old'})).status,409);assert.equal(f.calls.length,calls);
 });

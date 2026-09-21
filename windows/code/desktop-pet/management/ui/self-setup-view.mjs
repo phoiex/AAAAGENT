@@ -34,17 +34,19 @@ export function createSelfSetupView(client,render,host){
  let data=null,auth=null,epoch=0,active=false,reading=null,writing=null,timer=null,stale=true,error='',readError='',message='',composing=false,unavailable=false;
  let secret='',credentialProvider='deepseek',file=null,uploadId=null,form={referenceId:'',label:'',targetModel:voiceModels[0].value,credentialRef:'',text:''};
  let settingsDraft=null,settingsBase=null,settingsRevision=null,settingsConflict=false,sample=null,activationReady=false;
+ const keyTests=new Map(),keyJobs=new Map();
+ function clearKeyTests(){for(const job of keyJobs.values())job.controller.abort();keyJobs.clear();keyTests.clear();}
  const consent=new Set(),uncertain=new Set();
  const visible=()=>!!client.token&&host().connection!=='locked'&&data&&(data.mode==='first-run'||host().page==='models')&&!document.hidden;
  const redraw=()=>{if(!composing)render();};
  function clearSample(){if(sample){sample.node.pause();sample.node.removeAttribute('src');sample.node.load();URL.revokeObjectURL(sample.url);sample=null;}}
- function stop(){active=false;epoch++;clearTimeout(timer);reading?.controller.abort();reading=null;stale=true;secret='';file=null;uploadId=null;activationReady=false;consent.clear();composing=false;clearSample();}
+ function stop(){clearKeyTests();active=false;epoch++;clearTimeout(timer);reading?.controller.abort();reading=null;stale=true;secret='';file=null;uploadId=null;activationReady=false;consent.clear();composing=false;clearSample();}
  function sync(){const next=host().authEpoch;if(auth!==next){stop();auth=next;data=null;unavailable=false;settingsDraft=settingsBase=null;settingsConflict=false;uncertain.clear();error='';message='';}if(!visible()){if(active)stop();return;}if(!active){active=true;queueMicrotask(()=>active&&refresh());}}
  function accept(value){
   if(value?.apiVersion!==1||!text(value.instanceId)||!['first-run','runtime'].includes(value.mode)||!whole(value.credentialRevision)||!Array.isArray(value.credentials)||!value.credentials.every(c=>text(c.id)&&providers.some(p=>p.value===c.provider)&&['configured','missing','unavailable'].includes(c.status))||!validSettings(value.settings)||!Array.isArray(value.adapters)||!value.adapters.every(a=>text(a.id)&&providers.some(p=>p.value===a.provider)&&Array.isArray(a.models)&&Array.isArray(a.slots)&&Array.isArray(a.endpoints))||!Array.isArray(value.references)||!value.references.every(validReference)||!Array.isArray(value.operations)||!value.operations.every(validOperation)||!value.initialization||!Array.isArray(value.initialization.blockers)||!value.links)throw Error('Invalid setup snapshot');
   const changed=data&&data.instanceId!==value.instanceId;
   if(!changed&&data&&(value.credentialRevision<data.credentialRevision||value.settings.revision<data.settings.revision||value.operations.some(o=>{const old=data.operations.find(p=>p.operationId===o.operationId);return old&&o.revision<old.revision;})))throw Error('Stale setup snapshot');
-  if(changed){epoch++;activationReady=false;secret='';file=null;uploadId=null;consent.clear();uncertain.clear();clearSample();if(settingsDraft)settingsConflict=true;message='设置服务已更新，请核对当前配置后继续。';}
+  if(changed){clearKeyTests();epoch++;activationReady=false;secret='';file=null;uploadId=null;consent.clear();uncertain.clear();clearSample();if(settingsDraft)settingsConflict=true;message='设置服务已更新，请核对当前配置后继续。';}
   if(data&&(changed||value.settings.revision!==data.settings.revision||value.credentialRevision!==data.credentialRevision))consent.clear();
   if(!settingsDraft||!changes(settingsBase,settingsDraft).length){settingsDraft=clone(value.settings.saved);settingsBase=clone(value.settings.saved);settingsRevision=value.settings.revision;}else if(settingsRevision!==value.settings.revision)settingsConflict=true;
   data=value;stale=false;unavailable=false;host().onMode(value.mode);
@@ -60,11 +62,23 @@ export function createSelfSetupView(client,render,host){
  function fail(e){stale=true;error=safeErrors[e.code]||'操作结果尚未确认，请刷新核对。不会自动重发收费请求。';if(e.status===401||e.status===403)host().onError({name:'Error',status:e.status});}
  async function mutate(path,body,acceptResult,{method='POST',cloudKey=null}={}){
   if(!ready())return;const t={epoch,instance:data.instanceId,auth:host().authEpoch};writing=t;reading?.controller.abort();reading=null;clearTimeout(timer);error='';message='';if(cloudKey)uncertain.add(cloudKey);render();
-  try{const result=await client.request('/api/self-setup/'+path,{method,body:{...body,instanceId:t.instance}});if(t.epoch!==epoch||t.auth!==host().authEpoch||data?.instanceId!==t.instance)return;acceptResult(result);if(cloudKey)uncertain.delete(cloudKey);}
+  try{const result=await client.request('/api/self-setup/'+path,{method,body:{...body,instanceId:t.instance}});if(t.epoch!==epoch||t.auth!==host().authEpoch||data?.instanceId!==t.instance)return;await acceptResult(result);if(cloudKey)uncertain.delete(cloudKey);}
   catch(e){if(t.epoch===epoch&&t.auth===host().authEpoch){fail(e);if(cloudKey&&e.status>=400&&e.status<500&&e.status!==408)uncertain.delete(cloudKey);}}
   finally{if(writing===t){writing=null;redraw();if(visible())await refresh();}}
  }
- function saveKey(){if(!ready())return;if(!secret.trim()){error='请填写 API Key 后保存。';render();return;}const key=secret.trim(),provider=credentialProvider;secret='';document.getElementById('setup-key').value='';return mutate('credentials',{provider,key,expectedRevision:data.credentialRevision,operationId:crypto.randomUUID()},r=>{if(r?.provider!==provider||!text(r.credentialRef)||!whole(r.revision))throw Error('Invalid credential receipt');message='API Key 已保存到本机，凭据条目 '+r.credentialRef.slice(-6)+'。请在模型配置中手动选择；当前使用的凭据未改变，尚未验证模型是否开通。';});}
+ async function testKey(c,operationId=crypto.randomUUID(),afterSave=false){
+  if((!afterSave&&!ready())||!data||keyJobs.has(c.id))return;
+  const t={epoch,instance:data.instanceId,auth:host().authEpoch,controller:new AbortController()};
+  const current=()=>keyJobs.get(c.id)===t&&t.epoch===epoch&&t.auth===host().authEpoch&&t.instance===data?.instanceId;
+  keyJobs.set(c.id,t);keyTests.delete(c.id);redraw();
+  try{const r=await client.request('/api/self-setup/credentials/test',{method:'POST',signal:t.controller.signal,body:{instanceId:t.instance,provider:c.provider,credentialRef:c.id,operationId}});
+   if(!current())return;
+   if(r?.provider!==c.provider||r.credentialRef!==c.id||typeof r.ok!=='boolean'||r.scope!=='model-list-authentication'||(r.ok?r.error!==null:!text(r.error)))throw Error('Invalid test receipt');
+   keyTests.set(c.id,{ok:r.ok,error:r.error});
+  }catch(e){if(current()&&e.name!=='AbortError'){keyTests.set(c.id,{ok:false,error:'连接测试未完成。'});if(e.status===401||e.status===403)host().onError({name:'Error',status:e.status});}}
+  finally{if(keyJobs.get(c.id)===t){keyJobs.delete(c.id);redraw();}}
+ }
+ function saveKey(){if(!ready())return;if(!secret.trim()){error='请填写 API Key 后保存。';render();return;}const key=secret.trim(),provider=credentialProvider,operationId=crypto.randomUUID();secret='';document.getElementById('setup-key').value='';return mutate('credentials',{provider,key,expectedRevision:data.credentialRevision,operationId},async r=>{if(r?.provider!==provider||!text(r.credentialRef)||!whole(r.revision))throw Error('Invalid credential receipt');message='API Key 已保存到本机，正在测试连接…';const savedEpoch=epoch;await testKey({id:r.credentialRef,provider},operationId,true);if(savedEpoch===epoch)message='API Key 已保存到本机。请在模型配置中手动选择；当前使用的凭据未改变。';});}
  async function upload(){if(!ready()||!file)return;const selected=file,t={epoch,instance:data.instanceId};writing=t;clearTimeout(timer);reading?.controller.abort();reading=null;error='';message='正在本机转换音频…';render();
   try{const audio=await encodeSetupReference(selected);if(t.epoch!==epoch||t.instance!==data?.instanceId)return;const operationId=uploadId||crypto.randomUUID();uploadId=operationId;
    const r=await client.request('/api/self-setup/reference',{method:'POST',body:{instanceId:t.instance,operationId,...audio}});if(t.epoch!==epoch||t.instance!==data?.instanceId)return;if(!validReference(r))throw Error('音频保存回执无法核对，请刷新。');form.referenceId=r.id;file=null;uploadId=null;message='参考音频已保存到本机，尚未发送到云端。';
@@ -88,10 +102,12 @@ export function createSelfSetupView(client,render,host){
   finally{if(writing===t){writing=null;redraw();if(active)timer=setTimeout(refresh,3000);}}
  }
  function finish(){if(!ready()||data.mode!=='first-run'||data.initialization.blockers.length||settingsConflict||changes(settingsBase,settingsDraft).length)return;return mutate('finish',{expectedRevision:data.settings.revision},r=>{if(r?.status!=='prepared'||r.requiresRestart!==true)throw Error('Invalid finish receipt');activationReady=true;message='初始化配置已准备好，尚未运行。本页不会自动启动，请按下方说明显式启用。';});}
- function modelHelp(){return el('p',{class:'field-help'},'请先在阿里云百炼开通所选模型及调用权限。保存 API Key 不代表模型已经开通。 ',link('百炼控制台',data?.links.dashscopeConsole),' · ',link('API Key 管理',data?.links.dashscopeKeys));}
- function keyView(){return el('section',{class:'card'},el('h2',{},'保存 API Key'),el('p',{class:'field-help'},'文本模型使用 DeepSeek；语音转写、多模态与 MiniMax 使用阿里云百炼。Key 只保存在本机，不在页面回显。'),modelHelp(),
+ function modelHelp(){return el('p',{class:'field-help'},'请先在阿里云百炼开通所选模型及调用权限。连接测试仅验证模型目录接口；具体模型仍需开通。 ',link('百炼控制台',data?.links.dashscopeConsole),' · ',link('API Key 管理',data?.links.dashscopeKeys));}
+ function keyView(){return el('section',{class:'card'},el('h2',{},'保存 API Key'),el('p',{class:'field-help'},'文本模型使用 DeepSeek；语音转写、多模态与 MiniMax 使用阿里云百炼。Key 只保存在本机，不在页面回显。保存后自动测试一次连接；测试不生成内容。'),modelHelp(),
   el('form',{onSubmit:e=>{e.preventDefault();saveKey();}},el('div',{class:'form-grid'},select('供应商','setup-provider',credentialProvider,providers,v=>{credentialProvider=v;secret='';render();},{disabled:!!writing}),field('API Key','setup-key',secret,v=>{secret=v;},{type:'password',maxLength:4096,autocomplete:'new-password',spellcheck:false,disabled:!!writing})),el('div',{class:'actions'},el('button',{id:'setup-key-save',type:'submit',disabled:!ready()},'保存到本机'))),
-  el('p',{class:'field-help'},link('DeepSeek Key 管理',data?.links.deepseekKeys)),data?.credentials.map(c=>el('p',{class:'subtle'},providers.find(p=>p.value===c.provider)?.label,' · ',c.label,' · ',c.status==='configured'?'已保存（未验证调用）':'尚未配置')));
+  el('p',{class:'field-help'},link('DeepSeek Key 管理',data?.links.deepseekKeys)),data?.credentials.map(c=>el('div',{'data-credential':c.id},el('p',{class:'subtle'},providers.find(p=>p.value===c.provider)?.label,' · ',c.label,' · ',c.status==='configured'?'已保存':'尚未配置'),
+   button(keyJobs.has(c.id)?'正在测试…':'测试连接',()=>testKey(c),{'data-key-test':c.id,disabled:!ready()||c.status!=='configured'||keyJobs.has(c.id)}),
+   keyTests.has(c.id)&&el('p',{'data-key-result':c.id,role:'status',class:keyTests.get(c.id).ok?'subtle':'notice warning'},keyTests.get(c.id).ok?'连接测试通过':keyTests.get(c.id).error))));
  }
  function firstModels(){const a={s:{snapshot:{settings:data.settings,adapters:data.adapters,credentials:data.credentials},settingsDraft,connection:ready()?'online':'offline',pending:new Set(writing?['settings']:[]),setupFirstRun:true},selfSetup:api,editSetting:modelEdit,render};
   return el('section',{class:'card'},el('h2',{},'选择模型与音色'),modelHelp(),el('p',{class:'field-help'},'先保存对应服务的 Key，再选择已适配模型。保存不会发起模型调用，完成初始化并重启后生效。'),
